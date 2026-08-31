@@ -1,0 +1,41 @@
+{
+  "name": "ddb",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e .env.local -e .env -- sh -c 'export NEXTAUTH_URL=${NEXTAUTH_URL:-$AUTH_URL}; export NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-$AUTH_SECRET}; next dev -p 5003'",
+    "build": "prisma generate && next build",
+    "start": "next start -p 5003",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "postinstall": "prisma generate",
+    "db:push": "dotenv -e .env.local -e .env -- prisma db push",
+    "db:generate": "prisma generate",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.6.2",
+    "prisma": "^6.19.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.1.7"
+  }
+}
