@@ -85,7 +85,7 @@ Status: ready-for-agent
 - iCHEF 憑證 (store id, login, password) are env-only, never shown in UI, logs, or 取數進度. First period: 中山 maps to that one credential set. Login URL is iCHEF 2.0 (`https://login.ichefpos.com/`). After login, only 營業報表-type pages; no other back-office crawling.
 - 網頁取數 is the primary 匯入 path; Admin upload of the same xlsx set is fallback. Required per period: 結帳／作廢, 打卡, 注記分析 drill-down for every outer item name. Missing template-bound item in the outer list → that 模板任務 clicks = 0; do not infer clicks from 結帳 lines.
 - 注記分析: outer list is navigation only; staff click counts live after opening the item name. Pull every name. 模板任務 are Admin-created later (exact item string × 單筆任務獎金).
-- xlsx read via SheetJS community package `xlsx`. CSV export is UTF-8 with BOM, stored values, named columns; not xlsx write.
+- xlsx read via `exceljs`. CSV export is UTF-8 with BOM, stored values, named columns; not xlsx write.
 - Timezone Asia/Taipei. 營業日 cuts at noon. Default 薪資期間 is calendar month in 營業日. 月結取數: 2nd of month 12:00, previous calendar month only, create period if missing, fetch ±1 calendar day around that window.
 - One 網頁取數 at a time per 門市. All-or-nothing replace. Failure keeps last successful 匯入. 取數進度 stays on the period; no push/email.
 - 重算 updates originals only; saved stored values stay. Unedited stored values track the new originals.

@@ -9,10 +9,13 @@
 
 Dev server **5003**（不要用 3000）。Postgres `5432` 庫名 `ddb`，MinIO bucket `ddb`（可與 BeyRotate 共用實例、不共 schema）。
 
+本機不必另裝 Postgres：與 BeyRotate 共用 Docker 的 `5432`，在該實例建 `ddb` 庫。
+
 ```bash
 cp .env.example .env
 # 填 DATABASE_URL、AUTH_SECRET、ADMIN_*、iCHEF 憑證、MinIO
-createdb ddb   # 或 psql: CREATE DATABASE ddb;
+docker exec -e PGPASSWORD=beyrotate_dev beyrotate-db-1 \
+  psql -U beyrotate -d postgres -c 'CREATE DATABASE ddb;'
 npm install
 npm run db:push
 npm run dev
