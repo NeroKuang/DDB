@@ -8,7 +8,8 @@
     "start": "next start -p 5003",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests --exclude src/fetch/**/*.test.ts",
+    "test:ichef": "vitest run src/fetch",
     "postinstall": "prisma generate",
     "db:push": "dotenv -e .env.local -e .env -- prisma db push",
     "db:generate": "prisma generate",
@@ -18,6 +19,7 @@
     "@prisma/client": "^6.19.0",
     "exceljs": "^4.4.0",
     "next": "16.3.3",
+    "playwright": "^1.62.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zod": "^4.4.3"

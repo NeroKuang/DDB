@@ -25,7 +25,8 @@ npm run dev
 
 ```bash
 npm run typecheck
-npm test
+npm test          # fixture 編成（不連 iCHEF）
+npm run test:ichef  # 真實網頁取數（需 .env 憑證；不斷言密碼）
 ```
 
 ## 環境變數
