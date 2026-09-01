@@ -37,11 +37,12 @@ model User {
 }
 
 model Store {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  name      String
-  staff     Staff[]
-  createdAt DateTime @default(now()) @map("created_at")
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  staff         Staff[]
+  templateTasks TemplateTask[]
+  createdAt     DateTime       @default(now()) @map("created_at")
 
   @@map("stores")
 }
@@ -71,12 +72,25 @@ model Staff {
 }
 
 model StaffAlias {
-  id        String @id @default(cuid())
-  staffId   String @map("staff_id")
-  staff     Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  staffId   String   @map("staff_id")
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
   nickname  String
   createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([staffId, nickname])
   @@map("staff_aliases")
+}
+
+model TemplateTask {
+  id             String   @id @default(cuid())
+  storeId        String   @map("store_id")
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  itemName       String   @map("item_name")
+  amountPerClick Float    @map("amount_per_click")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([storeId, itemName])
+  @@map("template_tasks")
 }

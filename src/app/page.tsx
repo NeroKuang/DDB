@@ -17,6 +17,9 @@ export default async function Home() {
       ? `/performance?nickname=${encodeURIComponent(session.user.primaryNickname)}`
       : "/performance";
 
+  const canManageTasks =
+    session.user.role === "ADMIN" || session.user.role === "SUPERVISOR";
+
   return (
     <main className="mx-auto flex min-h-full max-w-xl flex-col justify-center gap-4 px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">DDB 業績補償</h1>
@@ -34,6 +37,16 @@ export default async function Home() {
           查看業績面
         </Link>
       </p>
+      {canManageTasks ? (
+        <p>
+          <Link
+            href="/template-tasks"
+            className="text-base font-medium underline underline-offset-2"
+          >
+            {session.user.role === "ADMIN" ? "設定模板任務" : "查看模板任務"}
+          </Link>
+        </p>
+      ) : null}
       <p className="text-sm text-zinc-500">
         薪資報表編成與匯入畫面尚在接上。本機 port 5003。
       </p>

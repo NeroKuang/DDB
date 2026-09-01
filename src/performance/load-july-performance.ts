@@ -13,6 +13,7 @@ import {
   JULY_2026_PERIOD,
 } from "@/lib/july-2026-fixtures";
 import { loadStaffMastersForStore } from "@/staff/seed-zhongshan";
+import { listTemplateTasksForStoreCode } from "@/template-tasks/manage";
 
 export type PerformancePeriodInput = {
   periodLabel: string;
@@ -43,6 +44,7 @@ export async function loadJuly2026PerformanceInput(): Promise<PerformancePeriodI
   ).flat();
   const shop = zhongshanJuly2026Shop();
   const staff = await loadStaffMastersForStore();
+  const templateTasks = await listTemplateTasksForStoreCode();
 
   let periodLabel = "2026-07（中山・fixture）";
   if (files.source === "storage") {
@@ -59,6 +61,7 @@ export async function loadJuly2026PerformanceInput(): Promise<PerformancePeriodI
     checkoutLines,
     noteClicks,
     staff: staff.length > 0 ? staff : shop.staff,
-    templateTasks: shop.templateTasks,
+    templateTasks:
+      templateTasks.length > 0 ? templateTasks : shop.templateTasks,
   };
 }
