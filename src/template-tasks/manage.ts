@@ -1,6 +1,7 @@
 import type { AccountRole } from "@prisma/client";
 import type { TemplateTask as CompileTemplateTask } from "@/compile/types";
 import { prisma } from "@/lib/prisma";
+import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import type { TaskTargetTier } from "@/template-tasks/compute";
 
@@ -86,6 +87,7 @@ export async function upsertTemplateTask(input: {
   tiers?: TaskTargetTier[];
 }): Promise<StoredTemplateTask> {
   requireAdmin(input.actorRole);
+  await assertJulyPayPeriodUnlocked(input.storeId);
   const itemName = input.itemName.trim();
   if (!itemName) {
     throw new Error("品項名不可空白");
@@ -145,6 +147,7 @@ export async function deleteTemplateTask(input: {
   itemName: string;
 }): Promise<void> {
   requireAdmin(input.actorRole);
+  await assertJulyPayPeriodUnlocked(input.storeId);
   const itemName = input.itemName.trim();
   await prisma.templateTask.deleteMany({
     where: { storeId: input.storeId, itemName },

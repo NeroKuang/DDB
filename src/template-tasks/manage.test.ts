@@ -1,5 +1,7 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { prisma } from "@/lib/prisma";
+import { clearJulyPayPeriodLock } from "@/test-utils/clear-july-pay-period-lock";
 import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
 import {
   deleteTemplateTask,
@@ -14,6 +16,10 @@ describe("template task CRUD", () => {
     const seeded = await seedZhongshanStoreAndStaff();
     storeId = seeded.storeId;
     await prisma.templateTask.deleteMany({ where: { storeId } });
+  });
+
+  beforeEach(async () => {
+    await clearJulyPayPeriodLock(storeId);
   });
 
   afterAll(async () => {

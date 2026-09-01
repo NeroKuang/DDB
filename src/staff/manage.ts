@@ -6,6 +6,7 @@ import {
 } from "@/auth/accounts";
 import { prisma } from "@/lib/prisma";
 import { roundMoney } from "@/lib/money";
+import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
 import {
   defaultLoginUsernameFromPhone,
   defaultPasswordFromContactPhone,
@@ -188,6 +189,7 @@ export async function createStaff(input: {
   data: StaffWriteInput;
 }): Promise<StaffRecord> {
   requireAdmin(input.actorRole);
+  await assertJulyPayPeriodUnlocked(input.storeId);
   const data = normalizeStaffInput(input.data);
   const row = await prisma.staff.create({
     data: {
@@ -226,6 +228,7 @@ export async function updateStaff(input: {
   if (!existing) {
     throw new Error("店員不存在");
   }
+  await assertJulyPayPeriodUnlocked(existing.storeId);
   await prisma.staff.update({
     where: { id: input.id },
     data: {

@@ -5,7 +5,7 @@ import {
   type IchefCredentials,
 } from "@/fetch/ichef-web-fetch";
 import { prisma } from "@/lib/prisma";
-import { assertPayPeriodUnlocked } from "@/pay-period/manage";
+import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
 
 export type WebFetchProgress = {
@@ -116,7 +116,7 @@ export async function startWebFetch(input: {
   periodKey: string;
 }): Promise<WebFetchProgress> {
   requireAdmin(input.actorRole);
-  await assertPayPeriodUnlocked(input.storeId, input.periodKey);
+  await assertJulyPayPeriodUnlocked(input.storeId);
   const creds = readIchefCredentialsFromEnv();
   if (!creds) {
     throw new Error("iCHEF 憑證未設定（STORE_ID／LOGIN_ID／LOGIN_PASSWORD）");

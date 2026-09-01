@@ -1,6 +1,7 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { verifyCredentials } from "@/auth/accounts";
 import { prisma } from "@/lib/prisma";
+import { clearJulyPayPeriodLock } from "@/test-utils/clear-july-pay-period-lock";
 import {
   createStaff,
   getStaffById,
@@ -10,7 +11,7 @@ import {
 } from "@/staff/manage";
 import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
 
-const NICK = `測試員_${Date.now()}`;
+const NICK = `測試員_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 describe("staff master CRUD", () => {
   let storeId = "";
@@ -18,6 +19,10 @@ describe("staff master CRUD", () => {
   beforeAll(async () => {
     const seeded = await seedZhongshanStoreAndStaff();
     storeId = seeded.storeId;
+  });
+
+  beforeEach(async () => {
+    await clearJulyPayPeriodLock(storeId);
   });
 
   afterAll(async () => {

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { prisma } from "@/lib/prisma";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/pay-period/snapshot";
 import { compileJuly2026PayrollLive } from "@/payroll/compile-july-payroll";
 import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
+import { clearJulyPayPeriodLock } from "@/test-utils/clear-july-pay-period-lock";
 
 describe("pay period lock", () => {
   let storeId = "";
@@ -21,15 +22,14 @@ describe("pay period lock", () => {
   beforeAll(async () => {
     const seeded = await seedZhongshanStoreAndStaff();
     storeId = seeded.storeId;
-    await prisma.payPeriod.deleteMany({
-      where: { storeId, periodKey: JULY_2026_PERIOD_KEY },
-    });
+  });
+
+  beforeEach(async () => {
+    await clearJulyPayPeriodLock(storeId);
   });
 
   afterAll(async () => {
-    await prisma.payPeriod.deleteMany({
-      where: { storeId, periodKey: JULY_2026_PERIOD_KEY },
-    });
+    await clearJulyPayPeriodLock(storeId);
   });
 
   it("round-trips snapshot JSON with line item dates", () => {
@@ -95,18 +95,22 @@ describe("pay period lock", () => {
         snapshotJson: serializePeriodSnapshot(minimal),
       },
     });
-    await expect(
-      assertPayPeriodUnlocked(storeId, JULY_2026_PERIOD_KEY)
-    ).rejects.toThrow(/已鎖定/);
+    try {
+      await expect(
+        assertPayPeriodUnlocked(storeId, JULY_2026_PERIOD_KEY)
+      ).rejects.toThrow(/已鎖定/);
 
-    await unlockPayPeriod({
-      actorRole: "ADMIN",
-      storeId,
-      periodKey: JULY_2026_PERIOD_KEY,
-    });
-    await expect(
-      assertPayPeriodUnlocked(storeId, JULY_2026_PERIOD_KEY)
-    ).resolves.toBeUndefined();
+      await unlockPayPeriod({
+        actorRole: "ADMIN",
+        storeId,
+        periodKey: JULY_2026_PERIOD_KEY,
+      });
+      await expect(
+        assertPayPeriodUnlocked(storeId, JULY_2026_PERIOD_KEY)
+      ).resolves.toBeUndefined();
+    } finally {
+      await clearJulyPayPeriodLock(storeId);
+    }
   });
 
   it("rejects non-Admin lock/unlock", async () => {
