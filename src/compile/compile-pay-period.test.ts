@@ -95,6 +95,19 @@ describe("compilePayPeriod July 2026 fixtures", () => {
     ).toBe(4200);
   });
 
+  it("lands 勞健保 on 空想's 外場 薪資列", () => {
+    const row = compiled.payRows.find(
+      (item) => item.primaryNickname === "空想"
+    );
+    expect(row?.original.laborHealthInsurance).toBe(2542);
+  });
+
+  it("matches 當月薪資與應領 rollup for 粉冥", () => {
+    const payRow = row(compiled, "粉冥");
+    expect(payRow.stored.monthlyPay).toBeGreaterThan(0);
+    expect(payRow.stored.netPay).toBeLessThanOrEqual(payRow.stored.monthlyPay);
+  });
+
   it("uses 月薪 as 原始底薪 on 湯圓's 外場 薪資列", () => {
     expect(row(compiled, "湯圓").original.basePay).toBe(42000);
   });
