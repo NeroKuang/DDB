@@ -7,8 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Domain models land in later tickets. Keep generate/push working with a bootstrap row.
-model SchemaMeta {
-  id        String   @id @default("ddb")
-  createdAt DateTime @default(now())
+enum AccountRole {
+  ADMIN
+  SUPERVISOR
+  PERSONAL
+}
+
+model User {
+  id           String      @id @default(cuid())
+  username     String      @unique
+  passwordHash String      @map("password_hash")
+  role         AccountRole
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  @@map("users")
 }

@@ -13,7 +13,7 @@ Dev server **5003**（不要用 3000）。Postgres `5432` 庫名 `ddb`，MinIO b
 
 ```bash
 cp .env.example .env
-# 填 DATABASE_URL、AUTH_SECRET、ADMIN_*、iCHEF 憑證、MinIO
+# 填 DATABASE_URL、AUTH_SECRET、ADMIN_USERNAME、ADMIN_PASSWORD、iCHEF 憑證、MinIO
 docker exec -e PGPASSWORD=beyrotate_dev beyrotate-db-1 \
   psql -U beyrotate -d postgres -c 'CREATE DATABASE ddb;'
 npm install
@@ -21,7 +21,7 @@ npm run db:push
 npm run dev
 ```
 
-開 [http://localhost:5003](http://localhost:5003)。
+開 [http://localhost:5003](http://localhost:5003)。空庫會用 `ADMIN_USERNAME`／`ADMIN_PASSWORD` 種子第一個 Admin。
 
 ```bash
 npm run typecheck
