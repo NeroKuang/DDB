@@ -78,8 +78,11 @@ export function DashboardOverview({
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">中控台</h1>
-        <p className="text-sm opacity-70">
+        <h1 className="font-display text-3xl font-semibold tracking-wide">
+          中控台
+        </h1>
+        <hr className="brand-rule" />
+        <p className="text-sm text-muted">
           {status.periodLabel ?? status.periodKey}
           {status.locked ? "（已鎖定）" : ""}
         </p>
@@ -149,7 +152,7 @@ export function DashboardOverview({
                   <p className="mt-2">
                     <Link
                       href={alert.href}
-                      className="text-xs font-medium text-[var(--accent)] underline underline-offset-2"
+                      className="text-xs font-medium text-link"
                     >
                       前往處理 →
                     </Link>
@@ -198,8 +201,10 @@ export function PersonalDashboardOverview({
     : "/performance";
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">中控台</h1>
-      <p className="text-sm opacity-70">個人帳號僅能查看自己的業績面。</p>
+      <h1 className="font-display text-3xl font-semibold tracking-wide">
+        中控台
+      </h1>
+      <p className="text-sm text-muted">個人帳號僅能查看自己的業績面。</p>
       <Link href={href} className="btn-primary inline-block">
         查看我的業績面
       </Link>

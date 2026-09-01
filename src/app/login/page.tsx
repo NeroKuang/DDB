@@ -26,15 +26,21 @@ export default async function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-6 px-6 py-16">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">DDB 登入</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          使用自訂帳號與密碼。不公開註冊。
+      <div className="space-y-2 text-center">
+        <p className="font-display text-xs tracking-[0.35em] text-[var(--gothic-gold)] uppercase">
+          DDB
         </p>
+        <h1 className="font-display text-3xl font-semibold tracking-wide">
+          業績補償
+        </h1>
+        <hr className="brand-rule" />
+        <p className="text-sm text-muted">使用自訂帳號與密碼。不公開註冊。</p>
       </div>
-      <Suspense fallback={<p className="text-sm text-zinc-500">載入中…</p>}>
-        <LoginForm />
-      </Suspense>
+      <div className="login-panel">
+        <Suspense fallback={<p className="text-sm text-muted">載入中…</p>}>
+          <LoginForm />
+        </Suspense>
+      </div>
     </main>
   );
 }

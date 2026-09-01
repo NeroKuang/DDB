@@ -51,10 +51,7 @@ export function PayrollStepper({ current }: { current: PayrollStep }) {
           </span>
         );
       })}
-      <Link
-        href="/"
-        className="ml-auto self-center text-xs text-[var(--accent)] underline underline-offset-2"
-      >
+      <Link href="/" className="ml-auto self-center text-xs text-link">
         回中控台
       </Link>
     </nav>

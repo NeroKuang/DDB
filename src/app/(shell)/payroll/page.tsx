@@ -107,10 +107,7 @@ export default async function PayrollPage() {
         }
       >
         <p className="text-sm opacity-70">
-          <a
-            href="/payroll/export"
-            className="text-[var(--accent)] underline underline-offset-2"
-          >
+          <a href="/payroll/export" className="text-link">
             匯出 CSV（儲存值）
           </a>
         </p>

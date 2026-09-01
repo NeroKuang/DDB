@@ -9,8 +9,10 @@ export function PageHeader({
 }) {
   return (
     <header className="space-y-2">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      {description ? <p className="text-sm opacity-70">{description}</p> : null}
+      <h1 className="font-display text-3xl font-semibold tracking-wide">
+        {title}
+      </h1>
+      {description ? <p className="text-sm text-muted">{description}</p> : null}
       {children}
     </header>
   );

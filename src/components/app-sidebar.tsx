@@ -38,11 +38,14 @@ export function AppSidebar({
       <div className="border-b border-[color-mix(in_srgb,var(--sidebar-fg)_12%,var(--sidebar))] px-4 py-4">
         <Link
           href="/"
-          className="text-lg font-semibold tracking-tight text-[var(--sidebar-fg)]"
+          className="font-display text-xl font-semibold tracking-wide text-[var(--sidebar-fg)]"
           onClick={onNavigate}
         >
           DDB
         </Link>
+        <p className="font-display text-xs tracking-widest text-[var(--gothic-gold)] uppercase">
+          業績補償
+        </p>
         <p className="mt-1 text-xs text-[var(--sidebar-muted)]">
           {username}（{role}）{primaryNickname ? `／${primaryNickname}` : ""}
         </p>
@@ -94,7 +97,7 @@ export function MobileNavBar({ onOpenMenu }: { onOpenMenu: () => void }) {
       >
         選單
       </button>
-      <span className="text-sm font-semibold">DDB</span>
+      <span className="font-display text-sm font-semibold">DDB</span>
       <span className="w-12" />
     </header>
   );

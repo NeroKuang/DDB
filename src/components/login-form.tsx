@@ -33,7 +33,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm">
         <span>帳號</span>
         <input
@@ -42,7 +42,7 @@ export function LoginForm() {
           required
           value={username}
           onChange={(event) => setUsername(event.target.value)}
-          className="rounded border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900"
+          className="field-input"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -54,19 +54,15 @@ export function LoginForm() {
           required
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="rounded border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900"
+          className="field-input"
         />
       </label>
       {error ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-[var(--danger)]">
           {error}
         </p>
       ) : null}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className="btn-primary">
         {pending ? "登入中…" : "登入"}
       </button>
     </form>

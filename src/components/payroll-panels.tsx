@@ -76,7 +76,7 @@ export function PayrollSummaryTable({ rows }: { rows: PayRow[] }) {
                 <td>
                   <Link
                     href={`/performance?nickname=${encodeURIComponent(row.primaryNickname)}`}
-                    className="text-[var(--accent)] underline underline-offset-2"
+                    className="text-link"
                   >
                     {row.primaryNickname}
                   </Link>

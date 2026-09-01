@@ -1,21 +1,28 @@
 @import "tailwindcss";
 
-/* 預設：日式店務（shop）— 暖灰、琥珀 accent、緊湊表格 */
+/*
+ * DDB 視覺：日式店務（密度、表格）+ 歌德修女（DDB 品牌）
+ * - shop：暖灰 parchment、緊湊表格、琥珀 secondary
+ * - gothic/nun：酒紅 accent、深色 sidebar、display 襯線標題
+ * 專案內無獨立修女／歌德 UI 套件；由店內品項語彙（修女貪杯等）延伸。
+ */
 :root {
-  --background: #f4f1ec;
-  --foreground: #1c1917;
-  --surface: #faf9f7;
-  --surface-muted: #ece8e1;
-  --border: #d6d0c4;
-  --accent: #b45309;
-  --accent-soft: #fef3c7;
-  --sidebar: #292524;
-  --sidebar-fg: #fafaf9;
-  --sidebar-muted: #a8a29e;
-  --success: #15803d;
-  --warning: #b45309;
-  --danger: #b91c1c;
-  --radius: 0.375rem;
+  --background: #e8e0d4;
+  --foreground: #1a1218;
+  --surface: #f5f0e8;
+  --surface-muted: #ddd4c4;
+  --border: #b8a99a;
+  --accent: #7a2038;
+  --accent-warm: #a16207;
+  --accent-soft: #f0e4e4;
+  --sidebar: #120f14;
+  --sidebar-fg: #f5f0e8;
+  --sidebar-muted: #9a8f96;
+  --success: #166534;
+  --warning: #a16207;
+  --danger: #991b1b;
+  --radius: 0.25rem;
+  --gothic-gold: #8b7355;
 }
 
 @theme inline {
@@ -25,6 +32,7 @@
   --color-surface-muted: var(--surface-muted);
   --color-border: var(--border);
   --color-accent: var(--accent);
+  --color-accent-warm: var(--accent-warm);
   --color-accent-soft: var(--accent-soft);
   --color-sidebar: var(--sidebar);
   --color-sidebar-fg: var(--sidebar-fg);
@@ -36,29 +44,59 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #1c1917;
-    --foreground: #fafaf9;
-    --surface: #292524;
-    --surface-muted: #44403c;
-    --border: #57534e;
-    --accent: #fbbf24;
-    --accent-soft: #451a03;
-    --sidebar: #0c0a09;
-    --sidebar-fg: #fafaf9;
-    --sidebar-muted: #a8a29e;
+    --background: #0f0d12;
+    --foreground: #f0ebe3;
+    --surface: #1a161f;
+    --surface-muted: #2a2430;
+    --border: #4a404f;
+    --accent: #c9a962;
+    --accent-warm: #d97706;
+    --accent-soft: #2a1a22;
+    --sidebar: #08060a;
+    --sidebar-fg: #f0ebe3;
+    --sidebar-muted: #8a8090;
+    --gothic-gold: #c9a962;
   }
 }
 
-body {
+.app-body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background-image: radial-gradient(
+    ellipse 120% 80% at 50% -20%,
+    color-mix(in srgb, var(--accent) 6%, transparent),
+    transparent 55%
+  );
+}
+
+.font-display {
+  font-family: var(--font-display), "Songti TC", "Noto Serif TC", serif;
+  letter-spacing: 0.02em;
+}
+
+.brand-rule {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border) 20%,
+    var(--accent) 50%,
+    var(--border) 80%,
+    transparent
+  );
+  margin: 0.75rem 0;
 }
 
 .card-surface {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
 .table-compact th,
@@ -72,6 +110,7 @@ body {
   background: var(--surface-muted);
   font-weight: 600;
   white-space: nowrap;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
 }
 
 .table-compact tbody tr:nth-child(even) {
@@ -86,18 +125,26 @@ body {
   background: color-mix(in srgb, var(--accent-soft) 65%, var(--surface));
 }
 
-.inline-cell-input {
+.inline-cell-input,
+.field-input {
   width: 100%;
-  min-width: 4.5rem;
-  border-radius: calc(var(--radius) - 2px);
+  border-radius: calc(var(--radius) - 1px);
   border: 1px solid var(--border);
   background: var(--surface);
-  padding: 0.125rem 0.375rem;
-  font-size: 0.8125rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
+  color: var(--foreground);
 }
 
-.inline-cell-input:focus {
+.inline-cell-input {
+  min-width: 4.5rem;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.inline-cell-input:focus,
+.field-input:focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-color: var(--accent);
 }
@@ -132,18 +179,19 @@ body {
   border: 1px solid var(--border);
   background: var(--surface);
   padding: 1rem;
+  border-left: 3px solid var(--gothic-gold);
 }
 
 .kpi-card--ok {
-  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+  border-left-color: var(--success);
 }
 
 .kpi-card--warn {
-  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  border-left-color: var(--warning);
 }
 
 .kpi-card--bad {
-  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+  border-left-color: var(--danger);
 }
 
 .btn-primary {
@@ -153,6 +201,11 @@ body {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 80%, #000);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
 }
 
 .btn-secondary {
@@ -189,4 +242,25 @@ body {
 .stepper-step--pending {
   color: color-mix(in srgb, var(--foreground) 55%, transparent);
   padding: 0.25rem 0.5rem;
+}
+
+.text-link {
+  color: var(--accent-warm);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.text-muted {
+  opacity: 0.72;
+}
+
+.login-panel {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 1.5rem;
+  box-shadow:
+    0 4px 24px color-mix(in srgb, var(--foreground) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent);
+  border-top: 3px solid var(--accent);
 }
