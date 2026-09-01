@@ -226,7 +226,7 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
     }
     for (const task of shop.adHocTasks) {
       if (task.primaryNickname === staff.primaryNickname) {
-        taskTotal = roundMoney(taskTotal + task.amount);
+        taskTotal = roundMoney(taskTotal + task.storedAmount);
       }
     }
 

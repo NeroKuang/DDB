@@ -52,7 +52,9 @@ export type TemplateTask = {
 export type AdHocTask = {
   primaryNickname: string;
   name: string;
-  amount: number;
+  storedAmount: number;
+  /** When set, only confirmed rows count toward 任務獎金. */
+  confirmed?: boolean;
 };
 
 export type ShopInputs = {

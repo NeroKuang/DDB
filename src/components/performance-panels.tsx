@@ -223,17 +223,19 @@ export function PerformanceDetail({ view }: { view: StaffPerformanceView }) {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">追加任務</h2>
         <p className="text-sm text-zinc-500">
-          不經 POS，由 Admin 指定名稱與金額，計入任務獎金。
+          老闆本期其他需求。須確認派發後才計入任務獎金；原始金額為
+          0，採用儲存值。
         </p>
         {view.adHocTasks.length === 0 ? (
           <p className="text-sm text-zinc-500">本期沒有追加任務。</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[16rem] border-collapse text-left text-sm">
+            <table className="w-full min-w-[20rem] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-300">
                   <th className="py-2 pr-3 font-medium">名稱</th>
-                  <th className="py-2 font-medium">金額</th>
+                  <th className="py-2 pr-3 font-medium">儲存值</th>
+                  <th className="py-2 font-medium">狀態</th>
                 </tr>
               </thead>
               <tbody>
@@ -243,8 +245,11 @@ export function PerformanceDetail({ view }: { view: StaffPerformanceView }) {
                     className="border-b border-zinc-200"
                   >
                     <td className="py-2 pr-3">{row.name}</td>
-                    <td className="py-2 tabular-nums">
-                      {formatMoney(row.amount)}
+                    <td className="py-2 pr-3 tabular-nums">
+                      {formatMoney(row.storedAmount)}
+                    </td>
+                    <td className="py-2">
+                      {row.confirmed ? "已確認派發" : "待確認（不計入）"}
                     </td>
                   </tr>
                 ))}

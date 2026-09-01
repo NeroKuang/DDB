@@ -9,6 +9,7 @@ import {
   JULY_2026_PERIOD_KEY,
   listAdHocTasksForPeriod,
 } from "@/ad-hoc-tasks/manage";
+import { loadJuly2026StaffOriginalHours } from "@/ad-hoc-tasks/july-original-hours";
 import { authOptions } from "@/lib/auth-options";
 import { ensureAppBootstrap } from "@/lib/ensure-bootstrap";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +44,7 @@ export default async function AdHocTasksPage() {
   }
 
   const tasks = await listAdHocTasksForPeriod(store.id, JULY_2026_PERIOD_KEY);
+  const staffOriginalHours = await loadJuly2026StaffOriginalHours();
   const isAdmin = session.user.role === "ADMIN";
 
   return (
@@ -63,8 +65,8 @@ export default async function AdHocTasksPage() {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">追加任務</h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          門市：{store.name}。一期一次、不經
-          POS；與模板任務一併計入任務獎金。客座也可指定（無 DDB 帳號仍可算帳）。
+          門市：{store.name}
+          。用名稱描述老闆本期其他需求；填儲存值並確認派發後才計入任務獎金。模板任務仍依點選自動計算。客座也可指定。
         </p>
       </header>
       {isAdmin ? (
@@ -80,6 +82,7 @@ export default async function AdHocTasksPage() {
                 ? `${person.legalName || "客座"}・客座`
                 : person.legalName,
           }))}
+          staffOriginalHours={staffOriginalHours}
           tasks={tasks}
         />
       ) : (

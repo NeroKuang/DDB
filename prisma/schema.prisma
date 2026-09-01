@@ -112,16 +112,17 @@ model TemplateTaskTier {
 
 /** One-off 追加任務 for a store period (periodKey e.g. 2026-07); not from POS. */
 model AdHocTask {
-  id        String   @id @default(cuid())
-  storeId   String   @map("store_id")
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  staffId   String   @map("staff_id")
-  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  periodKey String   @map("period_key")
-  name      String
-  amount    Float
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(cuid())
+  storeId       String   @map("store_id")
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  staffId       String   @map("staff_id")
+  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  periodKey     String   @map("period_key")
+  name          String
+  storedAmount  Float    @default(0) @map("stored_amount")
+  confirmed     Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@index([storeId, periodKey])
   @@map("ad_hoc_tasks")

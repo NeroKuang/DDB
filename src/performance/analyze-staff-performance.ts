@@ -34,7 +34,8 @@ export type NoteListRow = {
 
 export type AdHocTaskRow = {
   name: string;
-  amount: number;
+  storedAmount: number;
+  confirmed: boolean;
 };
 
 export type StaffPerformanceView = {
@@ -165,10 +166,16 @@ export function analyzeStaffPerformance(input: {
   const mineNicknames = nicknamesOf(staff);
   const adHocForStaff: AdHocTaskRow[] = adHocTasks
     .filter((task) => mineNicknames.includes(task.primaryNickname))
-    .map((task) => ({ name: task.name, amount: task.amount }))
+    .map((task) => ({
+      name: task.name,
+      storedAmount: task.storedAmount,
+      confirmed: task.confirmed ?? true,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
   const adHocTotal = roundMoney(
-    adHocForStaff.reduce((sum, row) => sum + row.amount, 0)
+    adHocForStaff
+      .filter((row) => row.confirmed)
+      .reduce((sum, row) => sum + row.storedAmount, 0)
   );
   const taskBonusOriginal = roundMoney(noteTaskBonus + adHocTotal);
   const commissionOriginal = roundMoney(

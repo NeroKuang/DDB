@@ -164,17 +164,36 @@ describe("analyzeStaffPerformance", () => {
     expect(view.primaryNickname).toBe("黑夢");
   });
 
-  it("includes 追加任務 in 任務獎金", () => {
+  it("includes only confirmed 追加任務 in 任務獎金", () => {
     const view = analyzeStaffPerformance({
       staff: fenMing,
       checkoutLines: [],
       noteClicks: [],
       adHocTasks: [
-        { primaryNickname: "粉冥", name: "活動加碼", amount: 1000 },
-        { primaryNickname: "黑夢", name: "別人的", amount: 999 },
+        {
+          primaryNickname: "粉冥",
+          name: "活動加碼",
+          storedAmount: 1000,
+          confirmed: true,
+        },
+        {
+          primaryNickname: "粉冥",
+          name: "待確認",
+          storedAmount: 500,
+          confirmed: false,
+        },
+        {
+          primaryNickname: "黑夢",
+          name: "別人的",
+          storedAmount: 999,
+          confirmed: true,
+        },
       ],
     });
-    expect(view.adHocTasks).toEqual([{ name: "活動加碼", amount: 1000 }]);
+    expect(view.adHocTasks).toEqual([
+      { name: "待確認", storedAmount: 500, confirmed: false },
+      { name: "活動加碼", storedAmount: 1000, confirmed: true },
+    ]);
     expect(view.taskBonus.original).toBe(1000);
   });
 });
