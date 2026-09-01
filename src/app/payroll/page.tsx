@@ -5,6 +5,7 @@ import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { ImportUploadPanel } from "@/components/import-upload-panel";
 import { PayPeriodLockPanel } from "@/components/pay-period-lock-panel";
 import { PayrollSummaryTable } from "@/components/payroll-panels";
+import { RecountPayPeriodPanel } from "@/components/recount-pay-period-panel";
 import { WebFetchPanel } from "@/components/web-fetch-panel";
 import { authOptions } from "@/lib/auth-options";
 import { ensureAppBootstrap } from "@/lib/ensure-bootstrap";
@@ -126,6 +127,16 @@ export default async function PayrollPage() {
             {requiredImportsComplete ? "齊全" : "未齊"}
             ／可鎖定：{lockEligible ? "是" : "否"}
             ／薪資列 {payRows.length} 筆
+            {storeId ? (
+              <>
+                {" "}
+                <RecountPayPeriodPanel
+                  storeId={storeId}
+                  locked={locked}
+                  isAdmin={isAdmin}
+                />
+              </>
+            ) : null}
           </p>
           <PayrollSummaryTable rows={payRows} />
           {unmatchedNicknames.length > 0 ? (

@@ -67,6 +67,8 @@ export async function createStaffAction(
       data: staffFromForm(formData),
     });
     revalidatePath("/staff");
+    revalidatePath("/payroll");
+    revalidatePath("/performance");
     return { ok: true, message: "已新增店員。" };
   } catch (error) {
     return {
@@ -93,6 +95,8 @@ export async function updateStaffAction(
     });
     revalidatePath("/staff");
     revalidatePath(`/staff/${id}`);
+    revalidatePath("/payroll");
+    revalidatePath("/performance");
     return { ok: true, message: "已儲存店員主檔。" };
   } catch (error) {
     return {
