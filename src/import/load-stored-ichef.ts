@@ -109,7 +109,7 @@ export async function loadPerformanceFilesPreferringStorage(
   return {
     source: "storage",
     checkout: stored.checkout,
-    punches: stored.punches,
+    punches: stored.punches ?? fixtures.punches,
     noteOuter: stored.noteOuter,
     noteDrilldowns: notes.paths,
     noteDrilldownsFromFixtureFallback: notes.usedFallback,

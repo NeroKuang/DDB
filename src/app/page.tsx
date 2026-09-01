@@ -41,6 +41,14 @@ export default async function Home() {
         <>
           <p>
             <Link
+              href="/payroll"
+              className="text-base font-medium underline underline-offset-2"
+            >
+              查看薪資報表
+            </Link>
+          </p>
+          <p>
+            <Link
               href="/template-tasks"
               className="text-base font-medium underline underline-offset-2"
             >
@@ -57,9 +65,7 @@ export default async function Home() {
           </p>
         </>
       ) : null}
-      <p className="text-sm text-zinc-500">
-        薪資報表編成與匯入畫面尚在接上。本機 port 5003。
-      </p>
+      <p className="text-sm text-zinc-500">本機 port 5003。</p>
       <SignOutButton />
     </main>
   );

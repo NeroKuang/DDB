@@ -1,0 +1,90 @@
+import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { PayrollSummaryTable } from "@/components/payroll-panels";
+import { authOptions } from "@/lib/auth-options";
+import { ensureAppBootstrap } from "@/lib/ensure-bootstrap";
+import { compileJuly2026Payroll } from "@/payroll/compile-july-payroll";
+
+export default async function PayrollPage() {
+  await ensureAppBootstrap();
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+  if (session.user.role === "PERSONAL") {
+    redirect("/");
+  }
+
+  let compileError: string | null = null;
+  let periodLabel = "";
+  let payRows: Awaited<
+    ReturnType<typeof compileJuly2026Payroll>
+  >["result"]["payRows"] = [];
+  let unmatchedNicknames: { nickname: string; amount: number }[] = [];
+  let lockEligible = false;
+  let requiredImportsComplete = false;
+
+  try {
+    const compiled = await compileJuly2026Payroll();
+    periodLabel = compiled.periodLabel;
+    payRows = compiled.result.payRows;
+    unmatchedNicknames = compiled.result.unmatchedNicknames;
+    lockEligible = compiled.result.lockEligible;
+    requiredImportsComplete = compiled.result.requiredImportsComplete;
+  } catch (error) {
+    compileError = error instanceof Error ? error.message : "編成薪資報表失敗";
+  }
+
+  return (
+    <main className="mx-auto flex min-h-full max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
+      <header className="space-y-2">
+        <p className="text-sm text-zinc-500">
+          <Link href="/" className="underline underline-offset-2">
+            首頁
+          </Link>
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">薪資報表</h1>
+        {periodLabel ? (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            期間：{periodLabel}
+            。時薪制底薪＝時薪×該列上班時數；月薪整筆落在指定場別。
+          </p>
+        ) : null}
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <a href="/payroll/export" className="underline underline-offset-2">
+            匯出 CSV（儲存值）
+          </a>
+        </p>
+      </header>
+
+      {compileError ? (
+        <p role="alert" className="text-sm text-red-700">
+          {compileError}
+        </p>
+      ) : (
+        <>
+          <p className="text-sm text-zinc-500">
+            必要匯入
+            {requiredImportsComplete ? "齊全" : "未齊"}
+            ／可鎖定：{lockEligible ? "是" : "否"}
+            ／薪資列 {payRows.length} 筆
+          </p>
+          <PayrollSummaryTable rows={payRows} />
+          {unmatchedNicknames.length > 0 ? (
+            <section className="space-y-2">
+              <h2 className="text-base font-medium">未對上店員的業績注記</h2>
+              <ul className="list-inside list-disc text-sm text-zinc-600">
+                {unmatchedNicknames.map((item) => (
+                  <li key={`${item.nickname}-${item.amount}`}>
+                    {item.nickname}：{item.amount.toLocaleString("zh-TW")}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </>
+      )}
+    </main>
+  );
+}
