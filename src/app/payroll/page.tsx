@@ -22,6 +22,11 @@ export default async function PayrollPage() {
     ReturnType<typeof compileJuly2026Payroll>
   >["result"]["payRows"] = [];
   let unmatchedNicknames: { nickname: string; amount: number }[] = [];
+  let unmatchedClicks: {
+    itemName: string;
+    nickname: string;
+    clicks: number;
+  }[] = [];
   let lockEligible = false;
   let requiredImportsComplete = false;
 
@@ -30,6 +35,7 @@ export default async function PayrollPage() {
     periodLabel = compiled.periodLabel;
     payRows = compiled.result.payRows;
     unmatchedNicknames = compiled.result.unmatchedNicknames;
+    unmatchedClicks = compiled.result.unmatchedClicks;
     lockEligible = compiled.result.lockEligible;
     requiredImportsComplete = compiled.result.requiredImportsComplete;
   } catch (error) {
@@ -73,7 +79,10 @@ export default async function PayrollPage() {
           <PayrollSummaryTable rows={payRows} />
           {unmatchedNicknames.length > 0 ? (
             <section className="space-y-2">
-              <h2 className="text-base font-medium">未對上店員的業績注記</h2>
+              <h2 className="text-base font-medium">未對上的暱稱</h2>
+              <p className="text-xs text-zinc-500">
+                來自結帳業績注記；清空後才能鎖定本期。
+              </p>
               <ul className="list-inside list-disc text-sm text-zinc-600">
                 {unmatchedNicknames.map((item) => (
                   <li key={`${item.nickname}-${item.amount}`}>
@@ -81,6 +90,24 @@ export default async function PayrollPage() {
                   </li>
                 ))}
               </ul>
+            </section>
+          ) : null}
+          {unmatchedClicks.length > 0 ? (
+            <section className="space-y-2">
+              <h2 className="text-base font-medium">未對上的點選</h2>
+              <p className="text-xs text-zinc-500">來自注記分析；不擋鎖定。</p>
+              <ul className="list-inside list-disc text-sm text-zinc-600">
+                {unmatchedClicks.slice(0, 40).map((item) => (
+                  <li key={`${item.itemName}-${item.nickname}-${item.clicks}`}>
+                    {item.itemName}／{item.nickname}：{item.clicks} 次
+                  </li>
+                ))}
+              </ul>
+              {unmatchedClicks.length > 40 ? (
+                <p className="text-xs text-zinc-500">
+                  另有 {unmatchedClicks.length - 40} 筆未列出。
+                </p>
+              ) : null}
             </section>
           ) : null}
         </>
