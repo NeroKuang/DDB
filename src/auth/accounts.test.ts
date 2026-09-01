@@ -17,13 +17,16 @@ describe("accounts", () => {
 
   beforeAll(async () => {
     await seedZhongshanStoreAndStaff();
-    const fenMing = await prisma.staff.findFirst({
-      where: { primaryNickname: "粉冥" },
+    const staffForPersonal = await prisma.staff.findFirst({
+      where: {
+        kind: "REGULAR",
+        users: { none: { role: "PERSONAL" } },
+      },
     });
-    if (!fenMing) {
-      throw new Error("粉冥 staff missing after seed");
+    if (!staffForPersonal) {
+      throw new Error("no regular staff without personal account");
     }
-    regularStaffId = fenMing.id;
+    regularStaffId = staffForPersonal.id;
   });
 
   afterAll(async () => {
@@ -92,7 +95,7 @@ describe("accounts", () => {
     });
     expect(supervisor.role).toBe("SUPERVISOR");
     expect(personal.role).toBe("PERSONAL");
-    expect(personal.primaryNickname).toBe("粉冥");
+    expect(personal.primaryNickname).toBeTruthy();
     expect(await verifyCredentials(`${prefix}sup`, "sup-pass")).toBeTruthy();
   });
 

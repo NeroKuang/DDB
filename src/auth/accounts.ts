@@ -99,6 +99,12 @@ export async function createAccount(input: {
     if (staff.kind === "GUEST") {
       throw new Error("客座 cannot have DDB accounts");
     }
+    const existingPersonal = await prisma.user.findFirst({
+      where: { staffId: input.staffId, role: "PERSONAL" },
+    });
+    if (existingPersonal) {
+      throw new Error("此店員已有 personal 帳號");
+    }
   }
   const user = await prisma.user.create({
     data: {

@@ -54,6 +54,7 @@ model Staff {
   store                      Store     @relation(fields: [storeId], references: [id])
   legalName                  String    @map("legal_name")
   primaryNickname            String    @map("primary_nickname")
+  contactPhone               String    @default("") @map("contact_phone")
   title                      String    @default("")
   kind                       StaffKind
   payKind                    PayKind   @map("pay_kind")

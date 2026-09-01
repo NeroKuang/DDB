@@ -41,6 +41,14 @@ export default async function Home() {
         <>
           <p>
             <Link
+              href="/staff"
+              className="text-base font-medium underline underline-offset-2"
+            >
+              {session.user.role === "ADMIN" ? "設定店員主檔" : "查看店員主檔"}
+            </Link>
+          </p>
+          <p>
+            <Link
               href="/payroll"
               className="text-base font-medium underline underline-offset-2"
             >
