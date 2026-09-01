@@ -151,8 +151,19 @@ export async function adminResetPassword(input: {
   if (!user) {
     throw new Error("account not found");
   }
+  if (user.role === "ADMIN") {
+    throw new Error("不能透過此表單重設 Admin 密碼");
+  }
   await prisma.user.update({
     where: { id: user.id },
     data: { passwordHash: await hashPassword(input.newPassword) },
   });
+}
+
+export async function listAccounts(): Promise<PublicUser[]> {
+  const users = await prisma.user.findMany({
+    include: { staff: true },
+    orderBy: [{ role: "asc" }, { username: "asc" }],
+  });
+  return users.map(toPublic);
 }
