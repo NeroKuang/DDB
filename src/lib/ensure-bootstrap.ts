@@ -1,5 +1,6 @@
 import { seedAdminIfEmpty } from "@/auth/accounts";
 import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
+import { seedJulyPeriodStaffFromFixture } from "@/pay-period-staff/manage";
 
 /** Seed Admin (if env present) and 中山門市／店員 master for local demos. */
 export async function ensureAppBootstrap(): Promise<void> {
@@ -12,4 +13,5 @@ export async function ensureAppBootstrap(): Promise<void> {
     }
   }
   await seedZhongshanStoreAndStaff();
+  await seedJulyPeriodStaffFromFixture();
 }

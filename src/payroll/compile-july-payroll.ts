@@ -17,8 +17,10 @@ import {
   JULY_2026_FILE_RANGE,
   JULY_2026_PERIOD,
 } from "@/lib/july-2026-fixtures";
+import { prisma } from "@/lib/prisma";
 import { loadStaffMastersForStore } from "@/staff/seed-zhongshan";
 import { listTemplateTasksForStoreCode } from "@/template-tasks/manage";
+import { loadPeriodStaffInputs } from "@/pay-period-staff/manage";
 import {
   getJuly2026PayPeriodState,
   isPayPeriodLocked,
@@ -37,9 +39,17 @@ export async function buildJulyShopInputs(): Promise<ShopInputs> {
   const staff = await loadStaffMastersForStore();
   const templateTasks = await listTemplateTasksForStoreCode();
   const adHocTasks = await listAdHocTasksForStoreCode(JULY_2026_PERIOD_KEY);
+  const store = await prisma.store.findUnique({
+    where: { code: "zhongshan" },
+  });
+  const periodStaff =
+    store != null
+      ? await loadPeriodStaffInputs(store.id, JULY_2026_PERIOD_KEY)
+      : shop.periodStaff;
   return {
     ...shop,
     staff: staff.length > 0 ? staff : shop.staff,
+    periodStaff,
     templateTasks:
       templateTasks.length > 0 ? templateTasks : shop.templateTasks,
     adHocTasks: adHocTasks.length > 0 ? adHocTasks : shop.adHocTasks,

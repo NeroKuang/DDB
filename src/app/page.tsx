@@ -49,6 +49,14 @@ export default async function Home() {
           </p>
           <p>
             <Link
+              href="/period-staff"
+              className="text-base font-medium underline underline-offset-2"
+            >
+              設定本期店員
+            </Link>
+          </p>
+          <p>
+            <Link
               href="/payroll"
               className="text-base font-medium underline underline-offset-2"
             >

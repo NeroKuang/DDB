@@ -51,6 +51,7 @@ model Store {
   templateTasks TemplateTask[]
   adHocTasks    AdHocTask[]
   payPeriods    PayPeriod[]
+  staffTitles   StaffTitle[]
   createdAt     DateTime       @default(now()) @map("created_at")
 
   @@map("stores")
@@ -72,6 +73,8 @@ model PayPeriod {
   fetchRangeEnd     String?         @map("fetch_range_end")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
+  staffSettings PayPeriodStaffSetting[]
+  storedPayRows PayRowStored[]
 
   @@unique([storeId, periodKey])
   @@map("pay_periods")
@@ -96,6 +99,8 @@ model Staff {
   aliases                    StaffAlias[]
   users                      User[]
   adHocTasks                 AdHocTask[]
+  payPeriodStaffSettings     PayPeriodStaffSetting[]
+  storedPayRows              PayRowStored[]
   createdAt                  DateTime  @default(now()) @map("created_at")
   updatedAt                  DateTime  @updatedAt @map("updated_at")
 
@@ -156,4 +161,47 @@ model AdHocTask {
 
   @@index([storeId, periodKey])
   @@map("ad_hoc_tasks")
+}
+
+/** Per 店員 per 薪資期間：場別／時數拆分、達標勾發、手填欄位歸屬。 */
+model PayPeriodStaffSetting {
+  id           String    @id @default(cuid())
+  payPeriodId  String    @map("pay_period_id")
+  payPeriod    PayPeriod @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  staffId      String    @map("staff_id")
+  staff        Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  settingsJson Json      @map("settings_json")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@unique([payPeriodId, staffId])
+  @@map("pay_period_staff_settings")
+}
+
+/** Per 薪資列（店員×場別）的儲存值覆寫。 */
+model PayRowStored {
+  id          String    @id @default(cuid())
+  payPeriodId String    @map("pay_period_id")
+  payPeriod   PayPeriod @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  staffId     String    @map("staff_id")
+  staff       Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  venue       String
+  valuesJson  Json      @map("values_json")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([payPeriodId, staffId, venue])
+  @@map("pay_row_stored")
+}
+
+/** Admin-maintained 職稱標籤清單（僅供篩選，不驅動公式）。 */
+model StaffTitle {
+  id        String   @id @default(cuid())
+  storeId   String   @map("store_id")
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  label     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([storeId, label])
+  @@map("staff_titles")
 }
