@@ -219,6 +219,40 @@ export function PerformanceDetail({ view }: { view: StaffPerformanceView }) {
           </div>
         )}
       </section>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">追加任務</h2>
+        <p className="text-sm text-zinc-500">
+          不經 POS，由 Admin 指定名稱與金額，計入任務獎金。
+        </p>
+        {view.adHocTasks.length === 0 ? (
+          <p className="text-sm text-zinc-500">本期沒有追加任務。</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[16rem] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-300">
+                  <th className="py-2 pr-3 font-medium">名稱</th>
+                  <th className="py-2 font-medium">金額</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.adHocTasks.map((row, index) => (
+                  <tr
+                    key={`${row.name}-${index}`}
+                    className="border-b border-zinc-200"
+                  >
+                    <td className="py-2 pr-3">{row.name}</td>
+                    <td className="py-2 tabular-nums">
+                      {formatMoney(row.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

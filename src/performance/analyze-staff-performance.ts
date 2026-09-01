@@ -1,5 +1,5 @@
 import { roundMoney } from "@/lib/money";
-import type { StaffMaster, TemplateTask } from "@/compile/types";
+import type { AdHocTask, StaffMaster, TemplateTask } from "@/compile/types";
 import type { CheckoutNoteLine } from "@/import/parse-checkout";
 import type { NoteAnalysisClick } from "@/import/parse-note-analysis";
 import { computeTemplateTaskBonus } from "@/template-tasks/compute";
@@ -32,6 +32,11 @@ export type NoteListRow = {
   taskBonus: MoneyPair;
 };
 
+export type AdHocTaskRow = {
+  name: string;
+  amount: number;
+};
+
 export type StaffPerformanceView = {
   primaryNickname: string;
   legalName: string;
@@ -40,6 +45,7 @@ export type StaffPerformanceView = {
   lineItems: PerformanceLineItem[];
   guestAnalysis: GuestAnalysisRow[];
   noteList: NoteListRow[];
+  adHocTasks: AdHocTaskRow[];
   taskBonus: MoneyPair;
 };
 
@@ -72,6 +78,7 @@ export function analyzeStaffPerformance(input: {
   checkoutLines: CheckoutNoteLine[];
   noteClicks: NoteAnalysisClick[];
   templateTasks?: TemplateTask[];
+  adHocTasks?: AdHocTask[];
   storedOverrides?: StoredPerformanceOverrides;
 }): StaffPerformanceView {
   const {
@@ -79,6 +86,7 @@ export function analyzeStaffPerformance(input: {
     checkoutLines,
     noteClicks,
     templateTasks = [],
+    adHocTasks = [],
     storedOverrides,
   } = input;
   const mine = new Set(nicknamesOf(staff));
@@ -151,9 +159,18 @@ export function analyzeStaffPerformance(input: {
     })
     .sort((a, b) => a.itemName.localeCompare(b.itemName, "zh-Hant"));
 
-  const taskBonusOriginal = roundMoney(
+  const noteTaskBonus = roundMoney(
     noteList.reduce((sum, row) => sum + row.taskBonus.original, 0)
   );
+  const mineNicknames = nicknamesOf(staff);
+  const adHocForStaff: AdHocTaskRow[] = adHocTasks
+    .filter((task) => mineNicknames.includes(task.primaryNickname))
+    .map((task) => ({ name: task.name, amount: task.amount }))
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
+  const adHocTotal = roundMoney(
+    adHocForStaff.reduce((sum, row) => sum + row.amount, 0)
+  );
+  const taskBonusOriginal = roundMoney(noteTaskBonus + adHocTotal);
   const commissionOriginal = roundMoney(
     personalSalesOriginal * staff.commissionRate
   );
@@ -166,6 +183,7 @@ export function analyzeStaffPerformance(input: {
     lineItems,
     guestAnalysis,
     noteList,
+    adHocTasks: adHocForStaff,
     taskBonus: pair(taskBonusOriginal, storedOverrides?.taskBonus),
   };
 }
@@ -175,6 +193,7 @@ export function analyzeAllStaffPerformance(input: {
   checkoutLines: CheckoutNoteLine[];
   noteClicks: NoteAnalysisClick[];
   templateTasks?: TemplateTask[];
+  adHocTasks?: AdHocTask[];
 }): StaffPerformanceView[] {
   return input.allStaff
     .filter((staff) => staff.kind === "regular" || staff.kind === "guest")
@@ -184,13 +203,15 @@ export function analyzeAllStaffPerformance(input: {
         checkoutLines: input.checkoutLines,
         noteClicks: input.noteClicks,
         templateTasks: input.templateTasks,
+        adHocTasks: input.adHocTasks,
       })
     )
     .filter(
       (view) =>
         view.personalSales.original > 0 ||
         view.lineItems.length > 0 ||
-        view.noteList.length > 0
+        view.noteList.length > 0 ||
+        view.adHocTasks.length > 0
     )
     .sort((a, b) =>
       a.primaryNickname.localeCompare(b.primaryNickname, "zh-Hant")

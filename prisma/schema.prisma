@@ -42,6 +42,7 @@ model Store {
   name          String
   staff         Staff[]
   templateTasks TemplateTask[]
+  adHocTasks    AdHocTask[]
   createdAt     DateTime       @default(now()) @map("created_at")
 
   @@map("stores")
@@ -64,6 +65,7 @@ model Staff {
   payNote                    String    @default("") @map("pay_note")
   aliases                    StaffAlias[]
   users                      User[]
+  adHocTasks                 AdHocTask[]
   createdAt                  DateTime  @default(now()) @map("created_at")
   updatedAt                  DateTime  @updatedAt @map("updated_at")
 
@@ -106,4 +108,21 @@ model TemplateTaskTier {
 
   @@unique([templateTaskId, minClicks])
   @@map("template_task_tiers")
+}
+
+/** One-off 追加任務 for a store period (periodKey e.g. 2026-07); not from POS. */
+model AdHocTask {
+  id        String   @id @default(cuid())
+  storeId   String   @map("store_id")
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  staffId   String   @map("staff_id")
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  periodKey String   @map("period_key")
+  name      String
+  amount    Float
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([storeId, periodKey])
+  @@map("ad_hoc_tasks")
 }

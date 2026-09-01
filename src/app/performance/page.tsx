@@ -54,6 +54,7 @@ export default async function PerformancePage({ searchParams }: PageProps) {
       checkoutLines: input.checkoutLines,
       noteClicks: input.noteClicks,
       templateTasks: input.templateTasks,
+      adHocTasks: input.adHocTasks,
     });
     return (
       <main className="mx-auto flex min-h-full max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -95,6 +96,7 @@ export default async function PerformancePage({ searchParams }: PageProps) {
     checkoutLines: input.checkoutLines,
     noteClicks: input.noteClicks,
     templateTasks: input.templateTasks,
+    adHocTasks: input.adHocTasks,
   });
 
   return (

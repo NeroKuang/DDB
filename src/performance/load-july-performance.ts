@@ -1,5 +1,5 @@
 import { zhongshanJuly2026Shop } from "@/compile/zhongshan-july-2026-shop";
-import type { StaffMaster, TemplateTask } from "@/compile/types";
+import type { AdHocTask, StaffMaster, TemplateTask } from "@/compile/types";
 import { parseCheckoutFile } from "@/import/parse-checkout";
 import type { CheckoutNoteLine } from "@/import/parse-checkout";
 import { loadPerformanceFilesPreferringStorage } from "@/import/load-stored-ichef";
@@ -12,11 +12,16 @@ import {
   JULY_2026_FILE_RANGE,
   JULY_2026_PERIOD,
 } from "@/lib/july-2026-fixtures";
+import {
+  JULY_2026_PERIOD_KEY,
+  listAdHocTasksForStoreCode,
+} from "@/ad-hoc-tasks/manage";
 import { loadStaffMastersForStore } from "@/staff/seed-zhongshan";
 import { listTemplateTasksForStoreCode } from "@/template-tasks/manage";
 
 export type PerformancePeriodInput = {
   periodLabel: string;
+  periodKey: string;
   source: "storage" | "fixture";
   noteDrilldownsFromFixtureFallback: boolean;
   period: { start: Date; end: Date };
@@ -24,6 +29,7 @@ export type PerformancePeriodInput = {
   noteClicks: NoteAnalysisClick[];
   staff: StaffMaster[];
   templateTasks: TemplateTask[];
+  adHocTasks: AdHocTask[];
 };
 
 /** July 2026 業績面: prefer storage/ichef live 網頁取數, else repo fixtures. */
@@ -45,6 +51,7 @@ export async function loadJuly2026PerformanceInput(): Promise<PerformancePeriodI
   const shop = zhongshanJuly2026Shop();
   const staff = await loadStaffMastersForStore();
   const templateTasks = await listTemplateTasksForStoreCode();
+  const adHocTasks = await listAdHocTasksForStoreCode(JULY_2026_PERIOD_KEY);
 
   let periodLabel = "2026-07（中山・fixture）";
   if (files.source === "storage") {
@@ -55,6 +62,7 @@ export async function loadJuly2026PerformanceInput(): Promise<PerformancePeriodI
 
   return {
     periodLabel,
+    periodKey: JULY_2026_PERIOD_KEY,
     source: files.source,
     noteDrilldownsFromFixtureFallback: files.noteDrilldownsFromFixtureFallback,
     period,
@@ -63,5 +71,6 @@ export async function loadJuly2026PerformanceInput(): Promise<PerformancePeriodI
     staff: staff.length > 0 ? staff : shop.staff,
     templateTasks:
       templateTasks.length > 0 ? templateTasks : shop.templateTasks,
+    adHocTasks: adHocTasks.length > 0 ? adHocTasks : shop.adHocTasks,
   };
 }

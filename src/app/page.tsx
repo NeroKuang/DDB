@@ -38,14 +38,24 @@ export default async function Home() {
         </Link>
       </p>
       {canManageTasks ? (
-        <p>
-          <Link
-            href="/template-tasks"
-            className="text-base font-medium underline underline-offset-2"
-          >
-            {session.user.role === "ADMIN" ? "設定模板任務" : "查看模板任務"}
-          </Link>
-        </p>
+        <>
+          <p>
+            <Link
+              href="/template-tasks"
+              className="text-base font-medium underline underline-offset-2"
+            >
+              {session.user.role === "ADMIN" ? "設定模板任務" : "查看模板任務"}
+            </Link>
+          </p>
+          <p>
+            <Link
+              href="/ad-hoc-tasks"
+              className="text-base font-medium underline underline-offset-2"
+            >
+              {session.user.role === "ADMIN" ? "設定追加任務" : "查看追加任務"}
+            </Link>
+          </p>
+        </>
       ) : null}
       <p className="text-sm text-zinc-500">
         薪資報表編成與匯入畫面尚在接上。本機 port 5003。
