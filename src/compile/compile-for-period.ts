@@ -3,6 +3,7 @@ import { compilePayPeriod } from "@/compile/compile-pay-period";
 import { buildShopInputsForPeriod } from "@/compile/build-shop-inputs";
 import { loadPeriodImports } from "@/compile/load-period-imports";
 import { periodLabelForImportSource } from "@/compile/period-catalog";
+import { getPayPeriodState, isPayPeriodLocked } from "@/pay-period/state";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export type PeriodCompileResult = {
@@ -48,8 +49,6 @@ export async function compilePayPeriodForStore(input: {
   periodKey: string;
   storeCode?: string;
 }): Promise<PeriodCompileResult> {
-  const { getPayPeriodState, isPayPeriodLocked } =
-    await import("@/pay-period/manage");
   const periodState = await getPayPeriodState(input.storeId, input.periodKey);
   if (isPayPeriodLocked(periodState) && periodState?.snapshot) {
     const snapshot = periodState.snapshot;

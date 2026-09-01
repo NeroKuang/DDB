@@ -2,7 +2,7 @@ import type { AccountRole } from "@prisma/client";
 import type { AdHocTask as CompileAdHocTask } from "@/compile/types";
 import { prisma } from "@/lib/prisma";
 import { roundMoney } from "@/lib/money";
-import { assertPayPeriodUnlocked } from "@/pay-period/manage";
+import { assertPayPeriodUnlocked } from "@/pay-period/state";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";

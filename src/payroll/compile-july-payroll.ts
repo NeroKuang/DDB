@@ -1,5 +1,5 @@
 import type { CompileResult, ShopInputs } from "@/compile/types";
-import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
+import { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
 import {
   buildShopInputsForPeriod,
   type CompileShopBundle,

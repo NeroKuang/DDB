@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { startWebFetchAndQueueJob } from "@/web-fetch/manage";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
-import { isPayPeriodLocked, getPayPeriodState } from "@/pay-period/manage";
+import { isPayPeriodLocked, getPayPeriodState } from "@/pay-period/state";
 
 /** Previous calendar month as YYYY-MM in Asia/Taipei. */
 export function previousCalendarMonthKey(now = new Date()): string {
