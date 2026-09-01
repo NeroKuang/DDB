@@ -1,6 +1,7 @@
-import { readFileSync } from "fs";
-import type { Download, Page } from "playwright";
 import { chromium } from "playwright";
+import type { Download, Page } from "playwright";
+import { saveFetchedFilesToStorage } from "@/fetch/save-fetched-to-storage";
+import { readFileSync } from "fs";
 
 export type IchefCredentials = {
   storeId: string;
@@ -369,7 +370,9 @@ export async function fetchIchefBusinessReports(
       throw new IchefFetchError("網頁取數 returned an empty xlsx");
     }
 
-    return { checkout, punches, noteOuter, noteDrilldowns };
+    const fetched = { checkout, punches, noteOuter, noteDrilldowns };
+    saveFetchedFilesToStorage(fetched, range);
+    return fetched;
   } finally {
     await browser.close();
   }

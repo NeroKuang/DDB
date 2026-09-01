@@ -1,3 +1,5 @@
+import { existsSync } from "fs";
+import path from "path";
 import { chromium } from "playwright";
 import { compileFetchedPayPeriod } from "@/import/compile-from-fetched";
 import { parseNamedSalaryCsv } from "@/import/parse-named-salary-csv";
@@ -8,6 +10,7 @@ import {
   openBusinessReports,
   readIchefCredentialsFromEnv,
 } from "@/fetch/ichef-web-fetch";
+import { storageDirForFetchRange } from "@/fetch/save-fetched-to-storage";
 import {
   JULY_2026_FILE_RANGE,
   JULY_2026_PERIOD,
@@ -120,6 +123,15 @@ describe("live iCHEF 網頁取數", () => {
         }
       }
       expect(JSON.stringify(compiled)).not.toContain(creds.password);
+      const storageDir = storageDirForFetchRange(JULY_2026_FILE_RANGE);
+      expect(existsSync(storageDir)).toBe(true);
+      const toDiskName = (name: string) => name.replace(/[\\/／]/g, "_");
+      expect(
+        existsSync(path.join(storageDir, toDiskName(fetched.checkout.filename)))
+      ).toBe(true);
+      expect(
+        existsSync(path.join(storageDir, toDiskName(fetched.punches.filename)))
+      ).toBe(true);
     },
     1_200_000
   );

@@ -35,4 +35,4 @@ npm run test:ichef  # 真實網頁取數（需 .env 憑證；不斷言密碼）
 
 ## 測試接縫
 
-真實 iCHEF 網頁取數 → 編成 → 對上 `7月報表-中山 - 7月.csv` 已命名欄。CI 用同一套 xlsx fixture 不連網回歸。
+真實 iCHEF 網頁取數 → 編成 → 對上 `7月報表-中山 - 7月.csv` 已命名欄。CI 用同一套 xlsx fixture 不連網回歸。本機取數下載寫在 `storage/ichef/<起_迄>/`（已 gitignore，勿 commit）。
