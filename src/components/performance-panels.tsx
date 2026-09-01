@@ -193,6 +193,8 @@ export function PerformanceDetail({ view }: { view: StaffPerformanceView }) {
                 <tr className="border-b border-zinc-300">
                   <th className="py-2 pr-3 font-medium">品項</th>
                   <th className="py-2 pr-3 font-medium">點選數</th>
+                  <th className="py-2 pr-3 font-medium">單筆小計</th>
+                  <th className="py-2 pr-3 font-medium">任務達標</th>
                   <th className="py-2 font-medium">任務獎金（採用／原始）</th>
                 </tr>
               </thead>
@@ -201,6 +203,12 @@ export function PerformanceDetail({ view }: { view: StaffPerformanceView }) {
                   <tr key={row.itemName} className="border-b border-zinc-200">
                     <td className="py-2 pr-3">{row.itemName}</td>
                     <td className="py-2 pr-3 tabular-nums">{row.clicks}</td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {formatMoney(row.perClickBonus)}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {formatMoney(row.targetBonus)}
+                    </td>
                     <td className="py-2">
                       <MoneyPairCell pair={row.taskBonus} />
                     </td>

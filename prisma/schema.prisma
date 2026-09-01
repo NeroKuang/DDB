@@ -83,14 +83,27 @@ model StaffAlias {
 }
 
 model TemplateTask {
-  id             String   @id @default(cuid())
-  storeId        String   @map("store_id")
-  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  itemName       String   @map("item_name")
-  amountPerClick Float    @map("amount_per_click")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id             String             @id @default(cuid())
+  storeId        String             @map("store_id")
+  store          Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  itemName       String             @map("item_name")
+  amountPerClick Float              @map("amount_per_click")
+  tiers          TemplateTaskTier[]
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
 
   @@unique([storeId, itemName])
   @@map("template_tasks")
+}
+
+model TemplateTaskTier {
+  id             String       @id @default(cuid())
+  templateTaskId String       @map("template_task_id")
+  templateTask   TemplateTask @relation(fields: [templateTaskId], references: [id], onDelete: Cascade)
+  minClicks      Int          @map("min_clicks")
+  bonusAmount    Float        @map("bonus_amount")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@unique([templateTaskId, minClicks])
+  @@map("template_task_tiers")
 }

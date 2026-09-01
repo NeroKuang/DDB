@@ -12,6 +12,7 @@ import type {
 import type { CheckoutNoteLine } from "@/import/parse-checkout";
 import type { NoteAnalysisClick } from "@/import/parse-note-analysis";
 import type { PunchPair } from "@/import/parse-punches";
+import { computeTemplateTaskBonus } from "@/template-tasks/compute";
 
 const DEFAULT_MANUALS = {
   demerits: 0,
@@ -215,7 +216,13 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
       const clicks =
         clicksByStaffItem.get(`${staff.primaryNickname}\t${task.itemName}`) ??
         0;
-      taskTotal = roundMoney(taskTotal + clicks * task.amountPerClick);
+      taskTotal = roundMoney(
+        taskTotal +
+          computeTemplateTaskBonus(clicks, {
+            amountPerClick: task.amountPerClick,
+            tiers: task.tiers ?? [],
+          }).total
+      );
     }
     for (const task of shop.adHocTasks) {
       if (task.primaryNickname === staff.primaryNickname) {

@@ -45,6 +45,8 @@ export type PeriodStaffInput = {
 export type TemplateTask = {
   itemName: string;
   amountPerClick: number;
+  /** Cumulative 任務達標 tiers (minClicks → flat bonus when clicks meet threshold). */
+  tiers: { minClicks: number; bonusAmount: number }[];
 };
 
 export type AdHocTask = {

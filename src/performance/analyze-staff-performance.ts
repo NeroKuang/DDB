@@ -2,6 +2,7 @@ import { roundMoney } from "@/lib/money";
 import type { StaffMaster, TemplateTask } from "@/compile/types";
 import type { CheckoutNoteLine } from "@/import/parse-checkout";
 import type { NoteAnalysisClick } from "@/import/parse-note-analysis";
+import { computeTemplateTaskBonus } from "@/template-tasks/compute";
 
 /** Original from POS/import; stored is payroll-adopted (defaults to original until edited). */
 export type MoneyPair = {
@@ -26,6 +27,8 @@ export type NoteListRow = {
   itemName: string;
   clicks: number;
   bonusPerClick: number;
+  perClickBonus: number;
+  targetBonus: number;
   taskBonus: MoneyPair;
 };
 
@@ -127,18 +130,23 @@ export function analyzeStaffPerformance(input: {
       (clicksByItem.get(click.itemName) ?? 0) + click.clicks
     );
   }
-  const bonusByItem = new Map(
-    templateTasks.map((task) => [task.itemName, task.amountPerClick])
+  const taskByItem = new Map(
+    templateTasks.map((task) => [task.itemName, task])
   );
   const noteList: NoteListRow[] = [...clicksByItem.entries()]
     .map(([itemName, clicks]) => {
-      const bonusPerClick = bonusByItem.get(itemName) ?? 0;
-      const taskBonusOriginal = roundMoney(clicks * bonusPerClick);
+      const task = taskByItem.get(itemName);
+      const breakdown = computeTemplateTaskBonus(clicks, {
+        amountPerClick: task?.amountPerClick ?? 0,
+        tiers: task?.tiers ?? [],
+      });
       return {
         itemName,
         clicks,
-        bonusPerClick,
-        taskBonus: pair(taskBonusOriginal),
+        bonusPerClick: task?.amountPerClick ?? 0,
+        perClickBonus: breakdown.perClickBonus,
+        targetBonus: breakdown.targetBonus,
+        taskBonus: pair(breakdown.total),
       };
     })
     .sort((a, b) => a.itemName.localeCompare(b.itemName, "zh-Hant"));

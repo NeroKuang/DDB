@@ -20,27 +20,41 @@ describe("template task CRUD", () => {
     await prisma.templateTask.deleteMany({ where: { storeId } });
   });
 
-  it("lets Admin upsert by exact item name and list tasks", async () => {
+  it("lets Admin upsert by exact item name with optional 任務達標 tiers", async () => {
     const created = await upsertTemplateTask({
       actorRole: "ADMIN",
       storeId,
       itemName: " 修女貪杯 ",
       amountPerClick: 50,
+      tiers: [
+        { minClicks: 10, bonusAmount: 500 },
+        { minClicks: 20, bonusAmount: 300 },
+      ],
     });
     expect(created.itemName).toBe("修女貪杯");
     expect(created.amountPerClick).toBe(50);
+    expect(created.tiers).toEqual([
+      { minClicks: 10, bonusAmount: 500 },
+      { minClicks: 20, bonusAmount: 300 },
+    ]);
 
     const updated = await upsertTemplateTask({
       actorRole: "ADMIN",
       storeId,
       itemName: "修女貪杯",
       amountPerClick: 60,
+      tiers: [{ minClicks: 15, bonusAmount: 200 }],
     });
     expect(updated.amountPerClick).toBe(60);
+    expect(updated.tiers).toEqual([{ minClicks: 15, bonusAmount: 200 }]);
 
     const listed = await listTemplateTasksForStore(storeId);
     expect(listed).toEqual([
-      expect.objectContaining({ itemName: "修女貪杯", amountPerClick: 60 }),
+      expect.objectContaining({
+        itemName: "修女貪杯",
+        amountPerClick: 60,
+        tiers: [{ minClicks: 15, bonusAmount: 200 }],
+      }),
     ]);
   });
 
@@ -64,15 +78,16 @@ describe("template task CRUD", () => {
     ).rejects.toThrow(/Only Admin/);
   });
 
-  it("rejects non-positive 單筆任務獎金 and empty item name", async () => {
+  it("rejects empty config and empty item name", async () => {
     await expect(
       upsertTemplateTask({
         actorRole: "ADMIN",
         storeId,
         itemName: "合照",
         amountPerClick: 0,
+        tiers: [],
       })
-    ).rejects.toThrow(/單筆任務獎金/);
+    ).rejects.toThrow(/至少設定/);
 
     await expect(
       upsertTemplateTask({
@@ -82,6 +97,18 @@ describe("template task CRUD", () => {
         amountPerClick: 10,
       })
     ).rejects.toThrow(/品項/);
+  });
+
+  it("allows 任務達標-only tasks", async () => {
+    const created = await upsertTemplateTask({
+      actorRole: "ADMIN",
+      storeId,
+      itemName: "合照",
+      amountPerClick: 0,
+      tiers: [{ minClicks: 5, bonusAmount: 100 }],
+    });
+    expect(created.amountPerClick).toBe(0);
+    expect(created.tiers).toHaveLength(1);
   });
 
   it("lets Admin delete a template task", async () => {

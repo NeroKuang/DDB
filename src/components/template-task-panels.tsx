@@ -6,9 +6,18 @@ import {
   saveTemplateTaskAction,
   type TemplateTaskActionState,
 } from "@/template-tasks/actions";
-import type { StoredTemplateTask } from "@/template-tasks/manage";
+import { type StoredTemplateTask } from "@/template-tasks/manage";
 
 const initial: TemplateTaskActionState = { ok: false, message: "" };
+
+function tiersSummary(task: StoredTemplateTask): string {
+  if (task.tiers.length === 0) {
+    return "—";
+  }
+  return task.tiers
+    .map((tier) => `滿${tier.minClicks}→${tier.bonusAmount}`)
+    .join("、");
+}
 
 export function TemplateTaskAdminPanel({
   storeId,
@@ -33,7 +42,9 @@ export function TemplateTaskAdminPanel({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">新增／更新</h2>
         <p className="text-sm text-zinc-500">
-          品項名須與 iCHEF 注記分析完全一致。單筆任務獎金可與 POS 售價不同。
+          品項名須與 iCHEF
+          注記分析完全一致。單筆任務獎金與任務達標可並行；至少設一種。任務達標為累加階梯（滿
+          10 發 A、滿 20 再加 B）。
         </p>
         <form action={saveAction} className="flex flex-col gap-3 sm:max-w-md">
           <input type="hidden" name="storeId" value={storeId} />
@@ -54,16 +65,28 @@ export function TemplateTaskAdminPanel({
             ))}
           </datalist>
           <label className="flex flex-col gap-1 text-sm">
-            <span>單筆任務獎金</span>
+            <span>單筆任務獎金（可 0）</span>
             <input
               name="amountPerClick"
               type="number"
-              min={0.01}
+              min={0}
               step="any"
-              required
+              defaultValue={0}
               className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-600"
               placeholder="50"
             />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span>任務達標階梯（可空白）</span>
+            <textarea
+              name="tiersText"
+              rows={3}
+              className="rounded border border-zinc-300 bg-transparent px-3 py-2 font-mono text-sm dark:border-zinc-600"
+              placeholder={"10:500\n20:300"}
+            />
+            <span className="text-xs text-zinc-500">
+              每行「門檻:金額」，例如 10:500
+            </span>
           </label>
           <button
             type="submit"
@@ -95,11 +118,12 @@ export function TemplateTaskAdminPanel({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[24rem] border-collapse text-left text-sm">
+            <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-300">
                   <th className="py-2 pr-3 font-medium">品項名</th>
-                  <th className="py-2 pr-3 font-medium">單筆任務獎金</th>
+                  <th className="py-2 pr-3 font-medium">單筆</th>
+                  <th className="py-2 pr-3 font-medium">任務達標</th>
                   <th className="py-2 font-medium">操作</th>
                 </tr>
               </thead>
@@ -109,6 +133,9 @@ export function TemplateTaskAdminPanel({
                     <td className="py-2 pr-3">{task.itemName}</td>
                     <td className="py-2 pr-3 tabular-nums">
                       {task.amountPerClick.toLocaleString("zh-TW")}
+                    </td>
+                    <td className="py-2 pr-3 text-xs sm:text-sm">
+                      {tiersSummary(task)}
                     </td>
                     <td className="py-2">
                       <form action={deleteAction}>
@@ -160,20 +187,22 @@ export function TemplateTaskReadOnlyList({
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[20rem] border-collapse text-left text-sm">
+      <table className="w-full min-w-[24rem] border-collapse text-left text-sm">
         <thead>
           <tr className="border-b border-zinc-300">
             <th className="py-2 pr-3 font-medium">品項名</th>
-            <th className="py-2 font-medium">單筆任務獎金</th>
+            <th className="py-2 pr-3 font-medium">單筆</th>
+            <th className="py-2 font-medium">任務達標</th>
           </tr>
         </thead>
         <tbody>
           {tasks.map((task) => (
             <tr key={task.id} className="border-b border-zinc-200">
               <td className="py-2 pr-3">{task.itemName}</td>
-              <td className="py-2 tabular-nums">
+              <td className="py-2 pr-3 tabular-nums">
                 {task.amountPerClick.toLocaleString("zh-TW")}
               </td>
+              <td className="py-2">{tiersSummary(task)}</td>
             </tr>
           ))}
         </tbody>

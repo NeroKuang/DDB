@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import {
   deleteTemplateTask,
+  parseTiersText,
   upsertTemplateTask,
 } from "@/template-tasks/manage";
 
@@ -24,13 +25,16 @@ export async function saveTemplateTaskAction(
   const storeId = String(formData.get("storeId") ?? "").trim();
   const itemName = String(formData.get("itemName") ?? "");
   const amountRaw = String(formData.get("amountPerClick") ?? "").trim();
-  const amountPerClick = Number(amountRaw);
+  const amountPerClick = amountRaw === "" ? 0 : Number(amountRaw);
+  const tiersText = String(formData.get("tiersText") ?? "");
   try {
+    const tiers = parseTiersText(tiersText);
     await upsertTemplateTask({
       actorRole: "ADMIN",
       storeId,
       itemName,
       amountPerClick,
+      tiers,
     });
     revalidatePath("/template-tasks");
     revalidatePath("/performance");
