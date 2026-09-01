@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
 import { saveUploadedIchefFiles } from "@/import/upload-ichef-files";
+import { mirrorStoredIchefToMinio } from "@/import/mirror-to-minio";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
 
 export type UploadImportActionState = {
@@ -41,6 +42,7 @@ export async function uploadIchefFilesAction(
     }
     const range = fileRangeForPeriodKey(JULY_2026_PERIOD_KEY);
     const saved = saveUploadedIchefFiles(resolved, range);
+    const minio = await mirrorStoredIchefToMinio(range);
     await prisma.payPeriod.upsert({
       where: {
         storeId_periodKey: { storeId, periodKey: JULY_2026_PERIOD_KEY },
@@ -66,7 +68,9 @@ export async function uploadIchefFilesAction(
     revalidatePath("/performance");
     return {
       ok: true,
-      message: `已上傳 ${saved.fileCount} 個檔案並取代本期匯入。`,
+      message: `已上傳 ${saved.fileCount} 個檔案並取代本期匯入。${
+        minio.skipped ? "" : ` MinIO 存證 ${minio.uploaded} 檔。`
+      }`,
     };
   } catch (error) {
     return {
