@@ -1,0 +1,131 @@
+// DRAFT — not applied. See docs/adr/0083-import-db-minio-retention.md
+// Apply after ingest module implementation is approved.
+
+enum ImportSource {
+  WEB_FETCH
+  ADMIN_UPLOAD
+}
+
+enum ImportRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum RawFileKind {
+  CHECKOUT
+  PUNCHES
+  NOTE_OUTER
+  NOTE_DRILLDOWN
+}
+
+enum RawRetentionState {
+  HOT          // original xlsx objects present
+  ARCHIVED     // replaced by {periodKey}.tar.gz
+  PURGED       // archive deleted (>12mo policy)
+}
+
+/// One successful or attempted 匯入 for a PayPeriod.
+model ImportRun {
+  id           String          @id @default(cuid())
+  payPeriodId  String          @map("pay_period_id")
+  payPeriod    PayPeriod       @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  source       ImportSource
+  status       ImportRunStatus @default(RUNNING)
+  startedAt    DateTime        @default(now()) @map("started_at")
+  finishedAt   DateTime?       @map("finished_at")
+  errorMessage String?         @map("error_message") @db.Text
+  fileRangeStart String?       @map("file_range_start")
+  fileRangeEnd   String?       @map("file_range_end")
+  rawFiles     ImportRawFile[]
+  checkoutLines ImportCheckoutLine[]
+  punchPairs   ImportPunchPair[]
+  noteClicks   ImportNoteClick[]
+  compileRuns  CompileRun[]
+
+  @@index([payPeriodId, startedAt])
+  @@map("import_runs")
+}
+
+/// Metadata for one iCHEF xlsx in MinIO raw/ (bytes live in object storage).
+model ImportRawFile {
+  id              String            @id @default(cuid())
+  importRunId     String            @map("import_run_id")
+  importRun       ImportRun         @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  kind            RawFileKind
+  originalName    String            @map("original_name")
+  minioKey        String            @map("minio_key")
+  sha256          String
+  sizeBytes       Int               @map("size_bytes")
+  retentionState  RawRetentionState @default(HOT) @map("retention_state")
+  archivedKey     String?           @map("archived_key") // e.g. raw/.../2026-05.tar.gz
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  @@index([importRunId])
+  @@index([retentionState])
+  @@map("import_raw_files")
+}
+
+/// Parsed 結帳／作廢 業績注記 line (non-voided used in 個人業績).
+model ImportCheckoutLine {
+  id          String    @id @default(cuid())
+  importRunId String    @map("import_run_id")
+  importRun   ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  nickname    String
+  amount      Float
+  orderer     String    @default("")
+  voided      Boolean   @default(false)
+  occurredAt  DateTime  @map("occurred_at")
+
+  @@index([importRunId, nickname])
+  @@map("import_checkout_lines")
+}
+
+model ImportPunchPair {
+  id          String    @id @default(cuid())
+  importRunId String    @map("import_run_id")
+  importRun   ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  nickname    String
+  hours       Float
+  paired      Boolean   @default(true)
+
+  @@index([importRunId, nickname])
+  @@map("import_punch_pairs")
+}
+
+model ImportNoteClick {
+  id          String    @id @default(cuid())
+  importRunId String    @map("import_run_id")
+  importRun   ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  itemName    String    @map("item_name")
+  nickname    String
+  clicks      Int
+
+  @@index([importRunId, nickname, itemName])
+  @@map("import_note_clicks")
+}
+
+/// One 編成 run after a successful ImportRun; links to audit xlsx in MinIO.
+model CompileRun {
+  id              String    @id @default(cuid())
+  importRunId     String    @map("import_run_id")
+  importRun       ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  payPeriodId     String    @map("pay_period_id")
+  payPeriod       PayPeriod @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  compiledAt      DateTime  @default(now()) @map("compiled_at")
+  auditMinioKey   String    @map("audit_minio_key")
+  auditSha256     String    @map("audit_sha256")
+  payRowCount     Int       @map("pay_row_count")
+  unmatchedNicknamesCount Int @map("unmatched_nicknames_count")
+  unmatchedClicksCount    Int @map("unmatched_clicks_count")
+  /// Optional: full CompileResult JSON for lock-fast-path until PayRow tables exist.
+  resultJson      String?   @map("result_json") @db.Text
+
+  @@index([payPeriodId, compiledAt])
+  @@map("compile_runs")
+}
+
+// PayPeriod additions (when merging):
+//   importRuns   ImportRun[]
+//   compileRuns  CompileRun[]
+//   activeImportRunId String?  // pointer to latest SUCCEEDED ImportRun for compile

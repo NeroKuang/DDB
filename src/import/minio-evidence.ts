@@ -37,6 +37,10 @@ function createClient(config: MinioConfig): S3Client {
   });
 }
 
+export function createMinioClient(config: MinioConfig): S3Client {
+  return createClient(config);
+}
+
 /** Upload every file under localDir to MinIO as evidence (no-op if env missing). */
 export async function uploadDirectoryToMinioEvidence(
   localDir: string,

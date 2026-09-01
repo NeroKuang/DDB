@@ -47,6 +47,16 @@ export default async function Home() {
               帳號與密碼
             </Link>
           </p>
+          {session.user.role === "ADMIN" ? (
+            <p>
+              <Link
+                href="/storage-retention"
+                className="text-base font-medium underline underline-offset-2"
+              >
+                raw 保留策略
+              </Link>
+            </p>
+          ) : null}
           <p>
             <Link
               href="/staff"
