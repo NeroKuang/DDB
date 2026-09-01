@@ -3,6 +3,7 @@ import type { PayRowOriginals, Venue } from "@/compile/types";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { prisma } from "@/lib/prisma";
 import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
+import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";
 
 export type PayRowStoredRecord = {
   staffId: string;
@@ -46,13 +47,7 @@ function parseValuesJson(raw: unknown): Partial<PayRowOriginals> {
 }
 
 async function ensureJulyPayPeriod(storeId: string): Promise<string> {
-  const row = await prisma.payPeriod.upsert({
-    where: {
-      storeId_periodKey: { storeId, periodKey: JULY_2026_PERIOD_KEY },
-    },
-    create: { storeId, periodKey: JULY_2026_PERIOD_KEY },
-    update: {},
-  });
+  const row = await ensurePayPeriodRow(storeId, JULY_2026_PERIOD_KEY);
   return row.id;
 }
 
@@ -115,6 +110,7 @@ export async function upsertPayRowStored(input: {
   staffId: string;
   venue: Venue;
   values: Partial<PayRowOriginals>;
+  clearFields?: (keyof PayRowOriginals)[];
 }): Promise<PayRowStoredRecord> {
   if (input.actorRole !== "ADMIN") {
     throw new Error("只有 Admin 可以修改薪資儲存值");
@@ -132,7 +128,22 @@ export async function upsertPayRowStored(input: {
     }
   }
   const payPeriodId = await ensureJulyPayPeriod(input.storeId);
-  if (Object.keys(cleaned).length === 0) {
+  const existing = await prisma.payRowStored.findUnique({
+    where: {
+      payPeriodId_staffId_venue: {
+        payPeriodId,
+        staffId: input.staffId,
+        venue: input.venue,
+      },
+    },
+  });
+  const prior = existing ? parseValuesJson(existing.valuesJson) : {};
+  const merged: Partial<PayRowOriginals> = { ...prior, ...cleaned };
+  for (const key of input.clearFields ?? []) {
+    delete merged[key];
+  }
+
+  if (Object.keys(merged).length === 0) {
     await prisma.payRowStored.deleteMany({
       where: {
         payPeriodId,
@@ -159,9 +170,9 @@ export async function upsertPayRowStored(input: {
       payPeriodId,
       staffId: input.staffId,
       venue: input.venue,
-      valuesJson: cleaned,
+      valuesJson: merged,
     },
-    update: { valuesJson: cleaned },
+    update: { valuesJson: merged },
   });
   return {
     staffId: staff.id,

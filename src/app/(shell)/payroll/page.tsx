@@ -1,15 +1,17 @@
-import Link from "next/link";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { ImportUploadPanel } from "@/components/import-upload-panel";
+import { PageHeader } from "@/components/page-header";
 import { PayPeriodLockPanel } from "@/components/pay-period-lock-panel";
-import { PayrollSummaryTable } from "@/components/payroll-panels";
-import { PayRowStoredEditor } from "@/components/pay-row-stored-editor";
+import { PayrollEditableTable } from "@/components/payroll-editable-table";
+import {
+  PayrollStepper,
+  resolvePayrollStep,
+} from "@/components/payroll-stepper";
 import { RecountPayPeriodPanel } from "@/components/recount-pay-period-panel";
 import { WebFetchPanel } from "@/components/web-fetch-panel";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { ensureAppBootstrap } from "@/lib/ensure-bootstrap";
 import { prisma } from "@/lib/prisma";
 import {
   getJuly2026PayPeriodState,
@@ -20,12 +22,8 @@ import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { getWebFetchProgress } from "@/web-fetch/manage";
 
 export default async function PayrollPage() {
-  await ensureAppBootstrap();
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
-  if (session.user.role === "PERSONAL") {
+  if (session?.user?.role === "PERSONAL") {
     redirect("/");
   }
 
@@ -45,6 +43,7 @@ export default async function PayrollPage() {
   let locked = false;
   let storeId = "";
   let staffIdByNickname: Record<string, string> = {};
+  let hasImport = false;
 
   const store = await prisma.store.findUnique({
     where: { code: ZHONGSHAN_STORE_CODE },
@@ -56,13 +55,26 @@ export default async function PayrollPage() {
   );
   const periodState = await getJuly2026PayPeriodState();
   locked = isPayPeriodLocked(periodState);
-  const isAdmin = session.user.role === "ADMIN";
+  const isAdmin = session?.user?.role === "ADMIN";
   const canViewFetch =
-    session.user.role === "ADMIN" || session.user.role === "SUPERVISOR";
+    session?.user?.role === "ADMIN" || session?.user?.role === "SUPERVISOR";
   const fetchProgress =
     storeId && canViewFetch
       ? await getWebFetchProgress(storeId, JULY_2026_PERIOD_KEY)
       : null;
+
+  if (storeId) {
+    const period = await prisma.payPeriod.findUnique({
+      where: {
+        storeId_periodKey: {
+          storeId,
+          periodKey: JULY_2026_PERIOD_KEY,
+        },
+      },
+      select: { activeImportRunId: true },
+    });
+    hasImport = Boolean(period?.activeImportRunId);
+  }
 
   try {
     const compiled = await compileJuly2026Payroll();
@@ -76,28 +88,35 @@ export default async function PayrollPage() {
     compileError = error instanceof Error ? error.message : "編成薪資報表失敗";
   }
 
+  const payrollStep = resolvePayrollStep({
+    locked,
+    fetchRunning: fetchProgress?.status === "RUNNING",
+    hasImport,
+    compileError: Boolean(compileError),
+    lockEligible,
+  });
+
   return (
-    <main className="mx-auto flex min-h-full max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
-      <header className="space-y-2">
-        <p className="text-sm text-zinc-500">
-          <Link href="/" className="underline underline-offset-2">
-            首頁
-          </Link>
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">薪資報表</h1>
-        {periodLabel ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            期間：{periodLabel}
-            {locked ? "（已鎖定）" : ""}
-            。時薪制底薪＝時薪×該列上班時數；月薪整筆落在指定場別。
-          </p>
-        ) : null}
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <a href="/payroll/export" className="underline underline-offset-2">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="薪資報表"
+        description={
+          periodLabel
+            ? `期間：${periodLabel}${locked ? "（已鎖定）" : ""}。時薪制底薪＝時薪×該列上班時數；月薪整筆落在指定場別。`
+            : undefined
+        }
+      >
+        <p className="text-sm opacity-70">
+          <a
+            href="/payroll/export"
+            className="text-[var(--accent)] underline underline-offset-2"
+          >
             匯出 CSV（儲存值）
           </a>
         </p>
-      </header>
+      </PageHeader>
+
+      <PayrollStepper current={payrollStep} />
 
       {compileError ? (
         <p role="alert" className="text-sm text-red-700">
@@ -128,7 +147,7 @@ export default async function PayrollPage() {
               isAdmin={isAdmin}
             />
           ) : null}
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm opacity-70">
             必要匯入
             {requiredImportsComplete ? "齊全" : "未齊"}
             ／可鎖定：{lockEligible ? "是" : "否"}
@@ -144,23 +163,21 @@ export default async function PayrollPage() {
               </>
             ) : null}
           </p>
-          <PayrollSummaryTable rows={payRows} />
-          {storeId ? (
-            <PayRowStoredEditor
-              storeId={storeId}
-              rows={payRows}
-              staffIdByNickname={staffIdByNickname}
-              locked={locked}
-              isAdmin={isAdmin}
-            />
-          ) : null}
+          <PayrollEditableTable
+            storeId={storeId}
+            rows={payRows}
+            staffIdByNickname={staffIdByNickname}
+            editable={Boolean(storeId) && isAdmin && !locked}
+          />
           {unmatchedNicknames.length > 0 ? (
-            <section className="space-y-2">
-              <h2 className="text-base font-medium">未對上的暱稱</h2>
-              <p className="text-xs text-zinc-500">
-                來自結帳業績注記；清空後才能鎖定本期。
+            <section className="alert-banner alert-warning space-y-2 p-4">
+              <h2 className="text-base font-medium">
+                未對上的暱稱（阻擋鎖定）
+              </h2>
+              <p className="text-xs opacity-80">
+                來自結帳業績注記；請補店員別名或修正主檔後重算。
               </p>
-              <ul className="list-inside list-disc text-sm text-zinc-600">
+              <ul className="list-inside list-disc text-sm">
                 {unmatchedNicknames.map((item) => (
                   <li key={`${item.nickname}-${item.amount}`}>
                     {item.nickname}：{item.amount.toLocaleString("zh-TW")}
@@ -170,10 +187,10 @@ export default async function PayrollPage() {
             </section>
           ) : null}
           {unmatchedClicks.length > 0 ? (
-            <section className="space-y-2">
+            <section className="card-surface space-y-2 p-4">
               <h2 className="text-base font-medium">未對上的點選</h2>
-              <p className="text-xs text-zinc-500">來自注記分析；不擋鎖定。</p>
-              <ul className="list-inside list-disc text-sm text-zinc-600">
+              <p className="text-xs opacity-70">來自注記分析；不擋鎖定。</p>
+              <ul className="list-inside list-disc text-sm opacity-80">
                 {unmatchedClicks.slice(0, 40).map((item) => (
                   <li key={`${item.itemName}-${item.nickname}-${item.clicks}`}>
                     {item.itemName}／{item.nickname}：{item.clicks} 次
@@ -181,7 +198,7 @@ export default async function PayrollPage() {
                 ))}
               </ul>
               {unmatchedClicks.length > 40 ? (
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs opacity-70">
                   另有 {unmatchedClicks.length - 40} 筆未列出。
                 </p>
               ) : null}
@@ -189,6 +206,6 @@ export default async function PayrollPage() {
           ) : null}
         </>
       )}
-    </main>
+    </div>
   );
 }

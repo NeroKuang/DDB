@@ -18,7 +18,11 @@ export const metadata: Metadata = {
   description: "iCHEF 之上的薪資報表編成與業績核對",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="zh-Hant"

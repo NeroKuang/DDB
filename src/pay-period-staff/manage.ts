@@ -4,6 +4,7 @@ import type { PeriodStaffInput } from "@/compile/types";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { prisma } from "@/lib/prisma";
 import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
+import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";
 import {
   DEFAULT_PERIOD_STAFF_SETTINGS,
   type PeriodStaffSettingsJson,
@@ -35,13 +36,7 @@ function parseSettingsJson(raw: unknown): PeriodStaffSettingsJson {
 }
 
 async function ensureJulyPayPeriod(storeId: string): Promise<string> {
-  const row = await prisma.payPeriod.upsert({
-    where: {
-      storeId_periodKey: { storeId, periodKey: JULY_2026_PERIOD_KEY },
-    },
-    create: { storeId, periodKey: JULY_2026_PERIOD_KEY },
-    update: {},
-  });
+  const row = await ensurePayPeriodRow(storeId, JULY_2026_PERIOD_KEY);
   return row.id;
 }
 
@@ -67,20 +62,25 @@ export async function seedJulyPeriodStaffFromFixture(
     staffRows.map((row) => [row.primaryNickname, row.id])
   );
   let seeded = 0;
+  const toCreate: {
+    payPeriodId: string;
+    staffId: string;
+    settingsJson: Omit<PeriodStaffInput, "primaryNickname">;
+  }[] = [];
   for (const input of fixture) {
     const staffId = byNickname.get(input.primaryNickname);
     if (!staffId) {
       continue;
     }
     const { primaryNickname: _drop, ...settings } = input;
-    await prisma.payPeriodStaffSetting.create({
-      data: {
-        payPeriodId,
-        staffId,
-        settingsJson: settings,
-      },
-    });
+    toCreate.push({ payPeriodId, staffId, settingsJson: settings });
     seeded += 1;
+  }
+  if (toCreate.length > 0) {
+    await prisma.payPeriodStaffSetting.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
   }
   return seeded;
 }

@@ -7,6 +7,7 @@ import {
 } from "@/fetch/ichef-web-fetch";
 import { runIngestPipeline } from "@/import/ingest/run-ingest-pipeline";
 import { prisma } from "@/lib/prisma";
+import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";
 import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
@@ -86,18 +87,6 @@ export async function getWebFetchProgress(
     };
   }
   return mapProgress(row);
-}
-
-async function ensurePayPeriodRow(
-  storeId: string,
-  periodKey: string
-): Promise<{ id: string }> {
-  return prisma.payPeriod.upsert({
-    where: { storeId_periodKey: { storeId, periodKey } },
-    create: { storeId, periodKey },
-    update: {},
-    select: { id: true },
-  });
 }
 
 async function assertNoStoreFetchRunning(

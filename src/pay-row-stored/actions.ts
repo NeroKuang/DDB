@@ -43,10 +43,16 @@ export async function savePayRowStoredAction(
     const storeId = String(formData.get("storeId") ?? "").trim();
     const staffId = String(formData.get("staffId") ?? "").trim();
     const venue = String(formData.get("venue") ?? "frontOfHouse") as Venue;
-    const values: Record<string, number> = {};
+    const values: Partial<Record<(typeof FIELD_NAMES)[number], number>> = {};
+    const clearFields: (typeof FIELD_NAMES)[number][] = [];
     for (const name of FIELD_NAMES) {
+      if (!formData.has(name)) {
+        continue;
+      }
       const raw = String(formData.get(name) ?? "").trim();
-      if (raw !== "") {
+      if (raw === "") {
+        clearFields.push(name);
+      } else {
         values[name] = Number(raw);
       }
     }
@@ -57,6 +63,7 @@ export async function savePayRowStoredAction(
       staffId,
       venue,
       values,
+      clearFields,
     });
     revalidatePath("/payroll");
     revalidatePath("/performance");
