@@ -1,147 +1,53 @@
-import { zhongshanJuly2026Shop } from "@/compile/zhongshan-july-2026-shop";
 import type { CompileResult, ShopInputs } from "@/compile/types";
+import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import {
-  JULY_2026_PERIOD_KEY,
-  listAdHocTasksForStoreCode,
-} from "@/ad-hoc-tasks/manage";
-import { compilePayPeriod } from "@/compile/compile-pay-period";
-import { parseCheckoutFile } from "@/import/parse-checkout";
-import { loadPerformanceFilesPreferringStorage } from "@/import/load-stored-ichef";
+  buildShopInputsForPeriod,
+  type CompileShopBundle,
+} from "@/compile/build-shop-inputs";
 import {
-  itemNameFromDrilldownFilename,
-  parseNoteDrilldown,
-  parseNoteOuterList,
-} from "@/import/parse-note-analysis";
-import { parsePunchFile } from "@/import/parse-punches";
-import {
-  JULY_2026_FILE_RANGE,
-  JULY_2026_PERIOD,
-} from "@/lib/july-2026-fixtures";
-import { prisma } from "@/lib/prisma";
-import { loadStaffMastersForStore } from "@/staff/seed-zhongshan";
-import { listTemplateTasksForStoreCode } from "@/template-tasks/manage";
-import { loadPeriodStaffInputs } from "@/pay-period-staff/manage";
-import { loadSavedStoredMap } from "@/pay-row-stored/manage";
-import {
-  getJuly2026PayPeriodState,
-  isPayPeriodLocked,
-} from "@/pay-period/manage";
+  compilePayPeriodForStore,
+  compilePayPeriodLive,
+  compileZhongshanPayPeriod,
+  type PeriodCompileResult,
+} from "@/compile/compile-for-period";
 
-export type JulyPayrollCompile = {
-  periodLabel: string;
-  periodKey: string;
-  source: "storage" | "fixture";
-  shop: ShopInputs;
-  result: CompileResult;
-};
+export type JulyPayrollCompile = PeriodCompileResult;
 
+/** @deprecated Use buildShopInputsForPeriod({ storeId, periodKey }). */
 export async function buildJulyShopInputs(): Promise<ShopInputs> {
-  const shop = zhongshanJuly2026Shop();
-  const staff = await loadStaffMastersForStore();
-  const templateTasks = await listTemplateTasksForStoreCode();
-  const adHocTasks = await listAdHocTasksForStoreCode(JULY_2026_PERIOD_KEY);
+  const { prisma } = await import("@/lib/prisma");
   const store = await prisma.store.findUnique({
     where: { code: "zhongshan" },
   });
-  const periodStaff =
-    store != null
-      ? await loadPeriodStaffInputs(store.id, JULY_2026_PERIOD_KEY)
-      : shop.periodStaff;
-  return {
-    ...shop,
-    staff: staff.length > 0 ? staff : shop.staff,
-    periodStaff,
-    templateTasks:
-      templateTasks.length > 0 ? templateTasks : shop.templateTasks,
-    adHocTasks: adHocTasks.length > 0 ? adHocTasks : shop.adHocTasks,
-  };
-}
-
-/** Compile July 2026 薪資報表 from storage/ichef or fixtures + shop master. */
-export async function compileJuly2026PayrollLive(): Promise<JulyPayrollCompile> {
-  const files =
-    await loadPerformanceFilesPreferringStorage(JULY_2026_FILE_RANGE);
-  const period = {
-    start: new Date(JULY_2026_PERIOD.startIso),
-    end: new Date(JULY_2026_PERIOD.endIso),
-  };
-  if (!files.punches) {
-    throw new Error("打卡檔缺失，無法編成薪資報表");
+  if (!store) {
+    const { getPeriodCatalogEntry } = await import("@/compile/period-catalog");
+    return getPeriodCatalogEntry(JULY_2026_PERIOD_KEY).fixtureShop();
   }
-  const checkoutLines = await parseCheckoutFile(files.checkout, period);
-  const punches = await parsePunchFile(files.punches, period);
-  const noteClicks = (
-    await Promise.all(
-      files.noteDrilldowns.map((filePath) =>
-        parseNoteDrilldown(filePath, itemNameFromDrilldownFilename(filePath))
-      )
-    )
-  ).flat();
-
-  let noteOuterComplete = false;
-  if (files.noteOuter) {
-    try {
-      const outer = await parseNoteOuterList(files.noteOuter);
-      const outerNames = new Set(outer.map((item) => item.name));
-      const drillNames = new Set(
-        files.noteDrilldowns.map((filePath) =>
-          itemNameFromDrilldownFilename(filePath)
-        )
-      );
-      noteOuterComplete =
-        outerNames.size > 0 &&
-        [...outerNames].every((name) => drillNames.has(name));
-    } catch {
-      noteOuterComplete = false;
-    }
-  }
-
-  const shop = await buildJulyShopInputs();
-  const store = await prisma.store.findUnique({
-    where: { code: "zhongshan" },
-  });
-  const savedStored =
-    store != null
-      ? await loadSavedStoredMap(store.id, JULY_2026_PERIOD_KEY)
-      : undefined;
-  const result = compilePayPeriod({
-    shop,
-    checkoutLines,
-    punchPairs: punches.pairs,
-    noteClicks,
-    noteOuterComplete,
-    savedStored,
-  });
-
-  let periodLabel = "2026-07（中山・fixture）";
-  if (files.source === "storage") {
-    periodLabel = files.noteDrilldownsFromFixtureFallback
-      ? "2026-07（中山・網頁取數；注記暫用 fixture）"
-      : "2026-07（中山・網頁取數）";
-  }
-
-  return {
-    periodLabel,
+  const bundle = await buildShopInputsForPeriod({
+    storeId: store.id,
     periodKey: JULY_2026_PERIOD_KEY,
-    source: files.source,
-    shop,
-    result,
-  };
+  });
+  return bundle.shop;
 }
 
-/** Returns frozen snapshot when period is locked; otherwise live compile. */
-export async function compileJuly2026Payroll(): Promise<JulyPayrollCompile> {
-  const periodState = await getJuly2026PayPeriodState();
-  if (isPayPeriodLocked(periodState) && periodState?.snapshot) {
-    const snapshot = periodState.snapshot;
-    const shop = await buildJulyShopInputs();
-    return {
-      periodLabel: `${snapshot.periodLabel}（已鎖定）`,
-      periodKey: snapshot.periodKey,
-      source: "storage",
-      shop,
-      result: snapshot.compile,
-    };
+/** @deprecated Use compilePayPeriodLive({ storeId, periodKey }). */
+export async function compileJuly2026PayrollLive(): Promise<JulyPayrollCompile> {
+  const { prisma } = await import("@/lib/prisma");
+  const store = await prisma.store.findUnique({
+    where: { code: "zhongshan" },
+  });
+  if (!store) {
+    throw new Error("中山門市尚未初始化");
   }
-  return compileJuly2026PayrollLive();
+  return compilePayPeriodLive({
+    storeId: store.id,
+    periodKey: JULY_2026_PERIOD_KEY,
+  });
 }
+
+/** @deprecated Use compileZhongshanPayPeriod(periodKey) or compilePayPeriodForStore. */
+export async function compileJuly2026Payroll(): Promise<JulyPayrollCompile> {
+  return compileZhongshanPayPeriod(JULY_2026_PERIOD_KEY);
+}
+
+export { buildShopInputsForPeriod, type CompileShopBundle };

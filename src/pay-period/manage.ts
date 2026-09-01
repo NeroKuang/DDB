@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { analyzeAllStaffPerformance } from "@/performance/analyze-staff-performance";
 import type { StaffPerformanceView } from "@/performance/analyze-staff-performance";
 import { loadJuly2026PerformanceInput } from "@/performance/load-july-performance";
-import { compileJuly2026PayrollLive } from "@/payroll/compile-july-payroll";
+import { compilePayPeriodLive } from "@/compile/compile-for-period";
 import {
   parsePeriodSnapshot,
   serializePeriodSnapshot,
@@ -70,15 +70,20 @@ export async function assertPayPeriodUnlocked(
   }
 }
 
-export async function buildJuly2026PeriodSnapshot(): Promise<PeriodSnapshot> {
-  const compiled = await compileJuly2026PayrollLive();
-  const input = await loadJuly2026PerformanceInput();
+export async function buildJuly2026PeriodSnapshot(
+  storeId: string
+): Promise<PeriodSnapshot> {
+  const compiled = await compilePayPeriodLive({
+    storeId,
+    periodKey: JULY_2026_PERIOD_KEY,
+  });
+  const perfInput = await loadJuly2026PerformanceInput();
   const performanceSummaries = analyzeAllStaffPerformance({
-    allStaff: input.staff,
-    checkoutLines: input.checkoutLines,
-    noteClicks: input.noteClicks,
-    templateTasks: input.templateTasks,
-    adHocTasks: input.adHocTasks,
+    allStaff: perfInput.staff,
+    checkoutLines: perfInput.checkoutLines,
+    noteClicks: perfInput.noteClicks,
+    templateTasks: perfInput.templateTasks,
+    adHocTasks: perfInput.adHocTasks,
   });
   return {
     version: 1,
@@ -99,11 +104,14 @@ export async function lockPayPeriod(input: {
   if (input.periodKey !== JULY_2026_PERIOD_KEY) {
     throw new Error("第一期僅支援鎖定 2026-07");
   }
-  const live = await compileJuly2026PayrollLive();
+  const live = await compilePayPeriodLive({
+    storeId: input.storeId,
+    periodKey: input.periodKey,
+  });
   if (!live.result.lockEligible) {
     throw new Error("未對上的暱稱未清空或必要匯入未齊，無法鎖定本期");
   }
-  const snapshot = await buildJuly2026PeriodSnapshot();
+  const snapshot = await buildJuly2026PeriodSnapshot(input.storeId);
   snapshot.lockedAtIso = new Date().toISOString();
   const row = await prisma.payPeriod.upsert({
     where: {

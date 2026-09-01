@@ -5,7 +5,7 @@ import { roundMoney } from "@/lib/money";
 import { assertPayPeriodUnlocked } from "@/pay-period/manage";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
-export const JULY_2026_PERIOD_KEY = "2026-07";
+export { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
 
 export type StoredAdHocTask = {
   id: string;
