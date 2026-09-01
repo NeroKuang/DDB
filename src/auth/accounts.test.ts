@@ -7,11 +7,24 @@ import {
   seedAdminIfEmpty,
   verifyCredentials,
 } from "@/auth/accounts";
+import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
 
 applyDotEnvFile();
 
 describe("accounts", () => {
   const prefix = `t_${Date.now()}_`;
+  let regularStaffId = "";
+
+  beforeAll(async () => {
+    await seedZhongshanStoreAndStaff();
+    const fenMing = await prisma.staff.findFirst({
+      where: { primaryNickname: "粉冥" },
+    });
+    if (!fenMing) {
+      throw new Error("粉冥 staff missing after seed");
+    }
+    regularStaffId = fenMing.id;
+  });
 
   afterAll(async () => {
     await prisma.user.deleteMany({
@@ -63,7 +76,7 @@ describe("accounts", () => {
     expect(await verifyCredentials(username, "nope")).toBeNull();
   });
 
-  it("lets Admin create Supervisor and personal accounts", async () => {
+  it("lets Admin create Supervisor and personal accounts bound to 一般店員", async () => {
     const supervisor = await createAccount({
       username: `${prefix}sup`,
       password: "sup-pass",
@@ -75,10 +88,23 @@ describe("accounts", () => {
       password: "person-pass",
       role: "PERSONAL",
       actorRole: "ADMIN",
+      staffId: regularStaffId,
     });
     expect(supervisor.role).toBe("SUPERVISOR");
     expect(personal.role).toBe("PERSONAL");
+    expect(personal.primaryNickname).toBe("粉冥");
     expect(await verifyCredentials(`${prefix}sup`, "sup-pass")).toBeTruthy();
+  });
+
+  it("rejects personal accounts without 店員", async () => {
+    await expect(
+      createAccount({
+        username: `${prefix}orphan`,
+        password: "x",
+        role: "PERSONAL",
+        actorRole: "ADMIN",
+      })
+    ).rejects.toThrow(/店員/);
   });
 
   it("forbids non-Admin from creating accounts", async () => {
@@ -88,6 +114,7 @@ describe("accounts", () => {
         password: "x",
         role: "PERSONAL",
         actorRole: "SUPERVISOR",
+        staffId: regularStaffId,
       })
     ).rejects.toThrow(/Only Admin/);
   });
@@ -98,6 +125,7 @@ describe("accounts", () => {
       password: "old-pass",
       role: "PERSONAL",
       actorRole: "ADMIN",
+      staffId: regularStaffId,
     });
     await changeOwnPassword({
       userId: created.id,

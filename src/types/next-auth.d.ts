@@ -7,6 +7,8 @@ declare module "next-auth" {
       id: string;
       username: string;
       role: string;
+      staffId?: string | null;
+      primaryNickname?: string | null;
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -15,6 +17,8 @@ declare module "next-auth" {
 
   interface User {
     role?: string;
+    staffId?: string | null;
+    primaryNickname?: string | null;
   }
 }
 
@@ -23,5 +27,7 @@ declare module "next-auth/jwt" {
     id?: string;
     role?: string;
     username?: string;
+    staffId?: string | null;
+    primaryNickname?: string | null;
   }
 }

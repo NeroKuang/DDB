@@ -8,10 +8,20 @@ export type PublicUser = {
   id: string;
   username: string;
   role: AccountRole;
+  staffId: string | null;
+  primaryNickname: string | null;
 };
 
-function toPublic(user: User): PublicUser {
-  return { id: user.id, username: user.username, role: user.role };
+function toPublic(
+  user: User & { staff?: { primaryNickname: string } | null }
+): PublicUser {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    staffId: user.staffId,
+    primaryNickname: user.staff?.primaryNickname ?? null,
+  };
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -22,7 +32,10 @@ export async function verifyCredentials(
   username: string,
   password: string
 ): Promise<PublicUser | null> {
-  const user = await prisma.user.findUnique({ where: { username } });
+  const user = await prisma.user.findUnique({
+    where: { username },
+    include: { staff: true },
+  });
   if (!user) {
     return null;
   }
@@ -64,6 +77,7 @@ export async function createAccount(input: {
   password: string;
   role: Exclude<AccountRole, "ADMIN">;
   actorRole: AccountRole;
+  staffId?: string;
 }): Promise<PublicUser> {
   if (input.actorRole !== "ADMIN") {
     throw new Error("Only Admin can create accounts");
@@ -72,12 +86,28 @@ export async function createAccount(input: {
   if (!username || !input.password) {
     throw new Error("username and password are required");
   }
+  if (input.role === "PERSONAL") {
+    if (!input.staffId) {
+      throw new Error("personal accounts require a 店員");
+    }
+    const staff = await prisma.staff.findUnique({
+      where: { id: input.staffId },
+    });
+    if (!staff) {
+      throw new Error("店員 not found");
+    }
+    if (staff.kind === "GUEST") {
+      throw new Error("客座 cannot have DDB accounts");
+    }
+  }
   const user = await prisma.user.create({
     data: {
       username,
       passwordHash: await hashPassword(input.password),
       role: input.role,
+      staffId: input.role === "PERSONAL" ? input.staffId : null,
     },
+    include: { staff: true },
   });
   return toPublic(user);
 }

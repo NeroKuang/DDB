@@ -13,13 +13,70 @@ enum AccountRole {
   PERSONAL
 }
 
+enum StaffKind {
+  REGULAR
+  GUEST
+}
+
+enum PayKind {
+  HOURLY
+  MONTHLY
+}
+
 model User {
   id           String      @id @default(cuid())
   username     String      @unique
   passwordHash String      @map("password_hash")
   role         AccountRole
+  staffId      String?     @map("staff_id")
+  staff        Staff?      @relation(fields: [staffId], references: [id])
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  staff     Staff[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("stores")
+}
+
+model Staff {
+  id                         String    @id @default(cuid())
+  storeId                    String    @map("store_id")
+  store                      Store     @relation(fields: [storeId], references: [id])
+  legalName                  String    @map("legal_name")
+  primaryNickname            String    @map("primary_nickname")
+  title                      String    @default("")
+  kind                       StaffKind
+  payKind                    PayKind   @map("pay_kind")
+  hourlyRate                 Float     @default(0) @map("hourly_rate")
+  monthlyPay                 Float     @default(0) @map("monthly_pay")
+  commissionRate             Float     @default(0.2) @map("commission_rate")
+  targetBonusAmount          Float     @default(0) @map("target_bonus_amount")
+  laborHealthInsuranceAmount Float     @default(0) @map("labor_health_insurance_amount")
+  payNote                    String    @default("") @map("pay_note")
+  aliases                    StaffAlias[]
+  users                      User[]
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([storeId, primaryNickname])
+  @@map("staff")
+}
+
+model StaffAlias {
+  id        String @id @default(cuid())
+  staffId   String @map("staff_id")
+  staff     Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  nickname  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([staffId, nickname])
+  @@map("staff_aliases")
 }
