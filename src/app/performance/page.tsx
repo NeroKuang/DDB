@@ -65,7 +65,7 @@ export default async function PerformancePage({ searchParams }: PageProps) {
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">業績面</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            期間：{input.periodLabel}。依 iCHEF 結帳業績注記與注記分析編成。
+            期間：{input.periodLabel}。依結帳業績注記與注記分析編成。
           </p>
         </header>
         <PerformanceSummaryTable rows={rows} />

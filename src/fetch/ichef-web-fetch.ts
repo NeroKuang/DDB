@@ -317,6 +317,14 @@ async function fetchAllNoteDrilldowns(
     await openNoteDrilldown(page, tag);
     await setAngularDateRange(page, startDate, endDate);
     await page.getByText(startDate).first().waitFor({ timeout: 30_000 });
+    // Drill-down data loads after the date apply; wait for body rows when present.
+    await page
+      .locator("table")
+      .filter({ hasText: "點選數" })
+      .locator("tr.ng-scope")
+      .first()
+      .waitFor({ timeout: 20_000 })
+      .catch(() => undefined);
     const downloadName =
       tag.attributeType === "comment" ? "下載註記比例.XLS" : /下載.+分析\.xls/i;
     await page.getByText(downloadName).first().waitFor({ timeout: 30_000 });
