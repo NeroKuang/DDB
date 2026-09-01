@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
+import { ImportUploadPanel } from "@/components/import-upload-panel";
 import { PayPeriodLockPanel } from "@/components/pay-period-lock-panel";
 import { PayrollSummaryTable } from "@/components/payroll-panels";
 import { WebFetchPanel } from "@/components/web-fetch-panel";
@@ -101,6 +102,13 @@ export default async function PayrollPage() {
             <WebFetchPanel
               storeId={storeId}
               progress={fetchProgress}
+              locked={locked}
+              isAdmin={isAdmin}
+            />
+          ) : null}
+          {storeId ? (
+            <ImportUploadPanel
+              storeId={storeId}
               locked={locked}
               isAdmin={isAdmin}
             />
