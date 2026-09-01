@@ -12,11 +12,10 @@ export type CheckoutNoteLine = {
   voided: boolean;
 };
 
-export async function parseCheckoutFile(
-  filePath: string,
+export function parseCheckoutRows(
+  rows: string[][],
   period: { start: Date; end: Date }
-): Promise<CheckoutNoteLine[]> {
-  const rows = await readFirstSheetRows(filePath);
+): CheckoutNoteLine[] {
   const header = rows[0] ?? [];
   const col = (name: string) => header.indexOf(name);
   const timeIdx = col("結帳時間");
@@ -55,4 +54,11 @@ export async function parseCheckoutFile(
     }
   }
   return lines;
+}
+
+export async function parseCheckoutFile(
+  filePath: string,
+  period: { start: Date; end: Date }
+): Promise<CheckoutNoteLine[]> {
+  return parseCheckoutRows(await readFirstSheetRows(filePath), period);
 }

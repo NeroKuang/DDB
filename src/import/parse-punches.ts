@@ -30,11 +30,10 @@ function parseHoursLabel(raw: string): number | null {
   return Number(match[1]) + Number(match[2]) / 60;
 }
 
-export async function parsePunchFile(
-  filePath: string,
+export function parsePunchRows(
+  rows: string[][],
   period: { start: Date; end: Date }
-): Promise<ParsedPunches> {
-  const rows = await readFirstSheetRows(filePath);
+): ParsedPunches {
   const pairs: PunchPair[] = [];
   const unpaired: UnpairedPunch[] = [];
   let nickname = "";
@@ -93,4 +92,11 @@ export async function parsePunchFile(
   }
   flushUnpairedIn();
   return { pairs, unpaired };
+}
+
+export async function parsePunchFile(
+  filePath: string,
+  period: { start: Date; end: Date }
+): Promise<ParsedPunches> {
+  return parsePunchRows(await readFirstSheetRows(filePath), period);
 }

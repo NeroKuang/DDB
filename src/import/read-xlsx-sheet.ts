@@ -30,14 +30,13 @@ function cellToString(value: ExcelJS.CellValue): string {
   return "";
 }
 
-export async function readFirstSheetRows(
-  filePath: string
+export async function readFirstSheetFromWorkbook(
+  workbook: ExcelJS.Workbook,
+  label: string
 ): Promise<string[][]> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(filePath);
   const sheet = workbook.worksheets[0];
   if (!sheet) {
-    throw new Error(`No worksheet in ${filePath}`);
+    throw new Error(`No worksheet in ${label}`);
   }
   const rows: string[][] = [];
   sheet.eachRow({ includeEmpty: true }, (row) => {
@@ -48,4 +47,23 @@ export async function readFirstSheetRows(
     rows.push(cells.map((cell) => cell ?? ""));
   });
   return rows;
+}
+
+export async function readFirstSheetRows(
+  filePath: string
+): Promise<string[][]> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  return readFirstSheetFromWorkbook(workbook, filePath);
+}
+
+export async function readFirstSheetFromBuffer(
+  bytes: Buffer,
+  label: string
+): Promise<string[][]> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(
+    bytes as unknown as Parameters<ExcelJS.Xlsx["load"]>[0]
+  );
+  return readFirstSheetFromWorkbook(workbook, label);
 }

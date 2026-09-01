@@ -6,6 +6,11 @@ export const JULY_2026_PERIOD = {
   endIso: "2026-08-01T12:00:00+08:00",
 } as const;
 
+export const JULY_2026_FILE_RANGE = {
+  startDate: "2026-06-30",
+  endDate: "2026-08-01",
+} as const;
+
 export function july2026FixturePaths(root = process.cwd()) {
   return {
     checkout: path.join(root, "結帳／作廢紀錄_2026-06-30~2026-08-01.xlsx"),

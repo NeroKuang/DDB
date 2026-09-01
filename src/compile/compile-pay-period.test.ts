@@ -1,15 +1,8 @@
-import { compilePayPeriod } from "@/compile/compile-pay-period";
-import { zhongshanJuly2026Shop } from "@/compile/zhongshan-july-2026-shop";
+import { compileFetchedPayPeriod } from "@/import/compile-from-fetched";
+import { loadJuly2026FetchedFromFixtures } from "@/import/load-july-fixtures-as-fetched";
+import { parseNamedSalaryCsv } from "@/import/parse-named-salary-csv";
 import type { PayRow } from "@/compile/types";
 import { payRowsToNamedCsv } from "@/export/pay-report-csv";
-import { parseCheckoutFile } from "@/import/parse-checkout";
-import {
-  itemNameFromDrilldownFilename,
-  parseNoteDrilldown,
-  parseNoteOuterList,
-} from "@/import/parse-note-analysis";
-import { parseNamedSalaryCsv } from "@/import/parse-named-salary-csv";
-import { parsePunchFile } from "@/import/parse-punches";
 import {
   JULY_2026_PERIOD,
   july2026FixturePaths,
@@ -17,31 +10,9 @@ import {
 import { roundMoney } from "@/lib/money";
 
 async function compileJulyFixtures() {
-  const paths = july2026FixturePaths();
-  const period = {
+  return compileFetchedPayPeriod(loadJuly2026FetchedFromFixtures(), {
     start: new Date(JULY_2026_PERIOD.startIso),
     end: new Date(JULY_2026_PERIOD.endIso),
-  };
-  const checkoutLines = await parseCheckoutFile(paths.checkout, period);
-  const punches = await parsePunchFile(paths.punches, period);
-  const noteClicks = (
-    await Promise.all(
-      paths.noteDrilldowns.map((filePath) =>
-        parseNoteDrilldown(filePath, itemNameFromDrilldownFilename(filePath))
-      )
-    )
-  ).flat();
-  const outer = await parseNoteOuterList(paths.noteOuter);
-  return compilePayPeriod({
-    shop: zhongshanJuly2026Shop(),
-    checkoutLines,
-    punchPairs: punches.pairs,
-    noteClicks,
-    noteOuterComplete: outer.every((item) =>
-      paths.noteDrilldowns.some(
-        (filePath) => itemNameFromDrilldownFilename(filePath) === item.name
-      )
-    ),
   });
 }
 
@@ -183,5 +154,9 @@ describe("compilePayPeriod July 2026 fixtures", () => {
     expect(csv).toContain("職稱,本名,暱稱");
     expect(csv).not.toContain(",,,,加給");
     expect(csv).toContain("粉冥");
+  });
+
+  it("marks required 匯入 incomplete when fixture only has two 注記 drill-downs", () => {
+    expect(compiled.requiredImportsComplete).toBe(false);
   });
 });

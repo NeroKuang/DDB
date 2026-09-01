@@ -11,10 +11,7 @@ export type NoteOuterItem = {
   clicks: number;
 };
 
-export async function parseNoteOuterList(
-  filePath: string
-): Promise<NoteOuterItem[]> {
-  const rows = await readFirstSheetRows(filePath);
+export function parseNoteOuterRows(rows: string[][]): NoteOuterItem[] {
   const header = rows[0] ?? [];
   const nameIdx = header.indexOf("名稱");
   const clicksIdx = header.indexOf("點選數");
@@ -30,11 +27,16 @@ export async function parseNoteOuterList(
   });
 }
 
-export async function parseNoteDrilldown(
-  filePath: string,
+export async function parseNoteOuterList(
+  filePath: string
+): Promise<NoteOuterItem[]> {
+  return parseNoteOuterRows(await readFirstSheetRows(filePath));
+}
+
+export function parseNoteDrilldownRows(
+  rows: string[][],
   itemName: string
-): Promise<NoteAnalysisClick[]> {
-  const rows = await readFirstSheetRows(filePath);
+): NoteAnalysisClick[] {
   const header = rows[0] ?? [];
   const nameIdx = header.indexOf("名稱");
   const clicksIdx = header.indexOf("點選數");
@@ -54,6 +56,13 @@ export async function parseNoteDrilldown(
       },
     ];
   });
+}
+
+export async function parseNoteDrilldown(
+  filePath: string,
+  itemName: string
+): Promise<NoteAnalysisClick[]> {
+  return parseNoteDrilldownRows(await readFirstSheetRows(filePath), itemName);
 }
 
 export function itemNameFromDrilldownFilename(filePath: string): string {

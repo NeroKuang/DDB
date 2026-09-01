@@ -63,4 +63,17 @@ describe("compilePayPeriod rules", () => {
         .commission
     ).toBe(200);
   });
+
+  it("does not let 未對上的點選 block 鎖定本期", () => {
+    const shop = zhongshanJuly2026Shop();
+    const result = compilePayPeriod({
+      shop,
+      checkoutLines: [line("粉冥", 1000)],
+      punchPairs: [],
+      noteClicks: [{ itemName: "修女貪杯", nickname: "不是店員", clicks: 3 }],
+      noteOuterComplete: true,
+    });
+    expect(result.unmatchedClicks.length).toBe(1);
+    expect(result.lockEligible).toBe(true);
+  });
 });
