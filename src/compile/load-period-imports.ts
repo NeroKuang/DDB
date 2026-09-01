@@ -13,7 +13,7 @@ import { parsePunchFile } from "@/import/parse-punches";
 
 export type PeriodImportBundle = {
   periodKey: string;
-  source: "storage" | "fixture";
+  source: "storage" | "fixture" | "db";
   noteDrilldownsFromFixtureFallback: boolean;
   checkoutLines: CheckoutNoteLine[];
   punchPairs: PunchPair[];
@@ -21,10 +21,20 @@ export type PeriodImportBundle = {
   noteOuterComplete: boolean;
 };
 
-/** Load and parse iCHEF files for one 薪資期間 (storage preferred, fixture fallback). */
+/** Load and parse iCHEF files for one 薪資期間 (DB preferred, then storage, fixture). */
 export async function loadPeriodImports(
-  periodKey: string
+  periodKey: string,
+  options?: { storeId?: string }
 ): Promise<PeriodImportBundle> {
+  if (options?.storeId) {
+    const { loadImportFromDb } =
+      await import("@/import/ingest/load-import-from-db");
+    const fromDb = await loadImportFromDb(options.storeId, periodKey);
+    if (fromDb) {
+      return fromDb;
+    }
+  }
+
   const catalog = getPeriodCatalogEntry(periodKey);
   const files = await loadPerformanceFilesPreferringStorage(catalog.fileRange);
   const period = {

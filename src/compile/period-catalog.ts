@@ -53,10 +53,13 @@ export function businessDaysForPeriodKey(periodKey: string): BusinessDayBounds {
 
 export function periodLabelForImportSource(
   periodKey: string,
-  source: "storage" | "fixture",
+  source: "storage" | "fixture" | "db",
   noteDrilldownsFromFixtureFallback: boolean
 ): string {
   const { labelPrefix } = getPeriodCatalogEntry(periodKey);
+  if (source === "db") {
+    return `${labelPrefix}・DB 匯入）`;
+  }
   if (source === "fixture") {
     return `${labelPrefix}・fixture）`;
   }

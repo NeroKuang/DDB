@@ -2,10 +2,13 @@ import type { AccountRole, WebFetchStatus } from "@prisma/client";
 import {
   fetchIchefBusinessReports,
   readIchefCredentialsFromEnv,
+  type FetchedIchefFiles,
   type IchefCredentials,
 } from "@/fetch/ichef-web-fetch";
+import { runIngestPipeline } from "@/import/ingest/run-ingest-pipeline";
 import { prisma } from "@/lib/prisma";
 import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
+import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
 
 export type WebFetchProgress = {
@@ -21,18 +24,21 @@ export type WebFetchProgress = {
 export type WebFetchRunner = (
   creds: IchefCredentials,
   range: { startDate: string; endDate: string }
-) => Promise<void>;
+) => Promise<FetchedIchefFiles>;
 
-let webFetchRunner: WebFetchRunner = async (creds, range) => {
-  await fetchIchefBusinessReports(creds, range);
-};
+let webFetchRunner: WebFetchRunner = fetchIchefBusinessReports;
 
 export function setWebFetchRunnerForTests(runner: WebFetchRunner | null): void {
-  webFetchRunner =
-    runner ??
-    (async (creds, range) => {
-      await fetchIchefBusinessReports(creds, range);
-    });
+  webFetchRunner = runner ?? fetchIchefBusinessReports;
+}
+
+function fetchedToUploadInputs(fetched: FetchedIchefFiles) {
+  return [
+    fetched.checkout,
+    fetched.punches,
+    fetched.noteOuter,
+    ...fetched.noteDrilldowns.map((item) => item.file),
+  ];
 }
 
 function requireAdmin(actorRole: AccountRole): void {
@@ -178,7 +184,20 @@ export async function runWebFetchJob(periodId: string): Promise<void> {
     return;
   }
   try {
-    await webFetchRunner(creds, range);
+    const fetched = await webFetchRunner(creds, range);
+    const store = await prisma.store.findUniqueOrThrow({
+      where: { id: row.storeId },
+      select: { code: true },
+    });
+    await runIngestPipeline({
+      payPeriodId: row.id,
+      storeId: row.storeId,
+      storeCode: store.code || ZHONGSHAN_STORE_CODE,
+      periodKey: row.periodKey,
+      source: "WEB_FETCH",
+      files: fetchedToUploadInputs(fetched),
+      fileRange: range,
+    });
     await prisma.payPeriod.update({
       where: { id: periodId },
       data: {

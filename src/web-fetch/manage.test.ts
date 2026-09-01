@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { applyDotEnvFile } from "@/fetch/ichef-web-fetch";
+import { julyFixturesAsFetched } from "@/import/ingest/july-fixture-bytes";
 import { prisma } from "@/lib/prisma";
 import { serializePeriodSnapshot } from "@/pay-period/snapshot";
 import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
@@ -25,6 +26,9 @@ describe("web fetch progress", () => {
   });
 
   afterAll(async () => {
+    await prisma.importRun.deleteMany({
+      where: { payPeriod: { storeId, periodKey: JULY_2026_PERIOD_KEY } },
+    });
     await prisma.payPeriod.deleteMany({
       where: { storeId, periodKey: JULY_2026_PERIOD_KEY },
     });
@@ -105,9 +109,7 @@ describe("web fetch progress", () => {
     await prisma.payPeriod.deleteMany({
       where: { storeId, periodKey: JULY_2026_PERIOD_KEY },
     });
-    setWebFetchRunnerForTests(async () => {
-      /* no-op */
-    });
+    setWebFetchRunnerForTests(async () => julyFixturesAsFetched());
     const started = await startWebFetch({
       actorRole: "ADMIN",
       storeId,

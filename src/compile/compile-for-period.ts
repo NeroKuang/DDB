@@ -9,7 +9,7 @@ import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 export type PeriodCompileResult = {
   periodLabel: string;
   periodKey: string;
-  source: "storage" | "fixture";
+  source: "storage" | "fixture" | "db";
   shop: ShopInputs;
   result: CompileResult;
 };
@@ -20,7 +20,9 @@ export async function compilePayPeriodLive(input: {
   periodKey: string;
   storeCode?: string;
 }): Promise<PeriodCompileResult> {
-  const imports = await loadPeriodImports(input.periodKey);
+  const imports = await loadPeriodImports(input.periodKey, {
+    storeId: input.storeId,
+  });
   const { shop, savedStored } = await buildShopInputsForPeriod(input);
   const result = compilePayPeriod({
     shop,

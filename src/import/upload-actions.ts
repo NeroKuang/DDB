@@ -6,9 +6,9 @@ import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
-import { saveUploadedIchefFiles } from "@/import/upload-ichef-files";
-import { mirrorStoredIchefToMinio } from "@/import/mirror-to-minio";
+import { runIngestPipeline } from "@/import/ingest/run-ingest-pipeline";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
+import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export type UploadImportActionState = {
   ok: boolean;
@@ -41,9 +41,11 @@ export async function uploadIchefFilesAction(
       return { ok: false, message: "請選擇 xlsx 檔案。" };
     }
     const range = fileRangeForPeriodKey(JULY_2026_PERIOD_KEY);
-    const saved = saveUploadedIchefFiles(resolved, range);
-    const minio = await mirrorStoredIchefToMinio(range);
-    await prisma.payPeriod.upsert({
+    const store = await prisma.store.findUniqueOrThrow({
+      where: { id: storeId },
+      select: { code: true },
+    });
+    const period = await prisma.payPeriod.upsert({
       where: {
         storeId_periodKey: { storeId, periodKey: JULY_2026_PERIOD_KEY },
       },
@@ -64,12 +66,21 @@ export async function uploadIchefFilesAction(
         fetchRangeEnd: range.endDate,
       },
     });
+    const ingested = await runIngestPipeline({
+      payPeriodId: period.id,
+      storeId,
+      storeCode: store.code || ZHONGSHAN_STORE_CODE,
+      periodKey: JULY_2026_PERIOD_KEY,
+      source: "ADMIN_UPLOAD",
+      files: resolved,
+      fileRange: range,
+    });
     revalidatePath("/payroll");
     revalidatePath("/performance");
     return {
       ok: true,
-      message: `已上傳 ${saved.fileCount} 個檔案並取代本期匯入。${
-        minio.skipped ? "" : ` MinIO 存證 ${minio.uploaded} 檔。`
+      message: `已上傳 ${resolved.length} 個檔案並寫入 DB 匯入（${ingested.payRowCount} 列薪資）。${
+        ingested.minioSkipped ? "" : " MinIO raw／audit 已上傳。"
       }`,
     };
   } catch (error) {

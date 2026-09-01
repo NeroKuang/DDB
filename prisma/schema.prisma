@@ -30,6 +30,30 @@ enum WebFetchStatus {
   FAILED
 }
 
+enum ImportSource {
+  WEB_FETCH
+  ADMIN_UPLOAD
+}
+
+enum ImportRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum RawFileKind {
+  CHECKOUT
+  PUNCHES
+  NOTE_OUTER
+  NOTE_DRILLDOWN
+}
+
+enum RawRetentionState {
+  HOT
+  ARCHIVED
+  PURGED
+}
+
 model User {
   id           String      @id @default(cuid())
   username     String      @unique
@@ -71,10 +95,13 @@ model PayPeriod {
   fetchErrorMessage String?         @map("fetch_error_message") @db.Text
   fetchRangeStart   String?         @map("fetch_range_start")
   fetchRangeEnd     String?         @map("fetch_range_end")
+  activeImportRunId String?         @map("active_import_run_id")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   staffSettings PayPeriodStaffSetting[]
   storedPayRows PayRowStored[]
+  importRuns    ImportRun[]
+  compileRuns   CompileRun[]
 
   @@unique([storeId, periodKey])
   @@map("pay_periods")
@@ -204,4 +231,100 @@ model StaffTitle {
 
   @@unique([storeId, label])
   @@map("staff_titles")
+}
+
+model ImportRun {
+  id             String              @id @default(cuid())
+  payPeriodId    String              @map("pay_period_id")
+  payPeriod      PayPeriod           @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  source         ImportSource
+  status         ImportRunStatus     @default(RUNNING)
+  startedAt      DateTime            @default(now()) @map("started_at")
+  finishedAt     DateTime?           @map("finished_at")
+  errorMessage   String?             @map("error_message") @db.Text
+  fileRangeStart String?             @map("file_range_start")
+  fileRangeEnd   String?             @map("file_range_end")
+  noteOuterComplete Boolean          @default(false) @map("note_outer_complete")
+  rawFiles       ImportRawFile[]
+  checkoutLines  ImportCheckoutLine[]
+  punchPairs     ImportPunchPair[]
+  noteClicks     ImportNoteClick[]
+  compileRuns    CompileRun[]
+
+  @@index([payPeriodId, startedAt])
+  @@map("import_runs")
+}
+
+model ImportRawFile {
+  id             String            @id @default(cuid())
+  importRunId    String            @map("import_run_id")
+  importRun      ImportRun         @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  kind           RawFileKind
+  originalName   String            @map("original_name")
+  minioKey       String            @map("minio_key")
+  sha256         String
+  sizeBytes      Int               @map("size_bytes")
+  retentionState RawRetentionState @default(HOT) @map("retention_state")
+  archivedKey    String?           @map("archived_key")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  @@index([importRunId])
+  @@index([retentionState])
+  @@map("import_raw_files")
+}
+
+model ImportCheckoutLine {
+  id          String    @id @default(cuid())
+  importRunId String    @map("import_run_id")
+  importRun   ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  nickname    String
+  amount      Float
+  orderer     String    @default("")
+  voided      Boolean   @default(false)
+  occurredAt  DateTime  @map("occurred_at")
+
+  @@index([importRunId, nickname])
+  @@map("import_checkout_lines")
+}
+
+model ImportPunchPair {
+  id          String    @id @default(cuid())
+  importRunId String    @map("import_run_id")
+  importRun   ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  nickname    String
+  hours       Float
+  paired      Boolean   @default(true)
+
+  @@index([importRunId, nickname])
+  @@map("import_punch_pairs")
+}
+
+model ImportNoteClick {
+  id          String    @id @default(cuid())
+  importRunId String    @map("import_run_id")
+  importRun   ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  itemName    String    @map("item_name")
+  nickname    String
+  clicks      Int
+
+  @@index([importRunId, nickname, itemName])
+  @@map("import_note_clicks")
+}
+
+model CompileRun {
+  id                      String    @id @default(cuid())
+  importRunId             String    @map("import_run_id")
+  importRun               ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  payPeriodId             String    @map("pay_period_id")
+  payPeriod               PayPeriod @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  compiledAt              DateTime  @default(now()) @map("compiled_at")
+  auditMinioKey           String    @map("audit_minio_key")
+  auditSha256             String    @map("audit_sha256")
+  payRowCount             Int       @map("pay_row_count")
+  unmatchedNicknamesCount Int       @map("unmatched_nicknames_count")
+  unmatchedClicksCount    Int       @map("unmatched_clicks_count")
+  resultJson              String?   @map("result_json") @db.Text
+
+  @@index([payPeriodId, compiledAt])
+  @@map("compile_runs")
 }

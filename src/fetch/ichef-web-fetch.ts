@@ -1,7 +1,5 @@
 import { chromium } from "playwright";
 import type { Download, Page } from "playwright";
-import { saveFetchedFilesToStorage } from "@/fetch/save-fetched-to-storage";
-import { mirrorStoredIchefToMinio } from "@/import/mirror-to-minio";
 import { readFileSync } from "fs";
 
 export type IchefCredentials = {
@@ -380,8 +378,6 @@ export async function fetchIchefBusinessReports(
     }
 
     const fetched = { checkout, punches, noteOuter, noteDrilldowns };
-    saveFetchedFilesToStorage(fetched, range);
-    await mirrorStoredIchefToMinio(range);
     return fetched;
   } finally {
     await browser.close();
