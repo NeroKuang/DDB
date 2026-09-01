@@ -5,6 +5,7 @@ import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { ImportUploadPanel } from "@/components/import-upload-panel";
 import { PayPeriodLockPanel } from "@/components/pay-period-lock-panel";
 import { PayrollSummaryTable } from "@/components/payroll-panels";
+import { PayRowStoredEditor } from "@/components/pay-row-stored-editor";
 import { RecountPayPeriodPanel } from "@/components/recount-pay-period-panel";
 import { WebFetchPanel } from "@/components/web-fetch-panel";
 import { authOptions } from "@/lib/auth-options";
@@ -43,11 +44,16 @@ export default async function PayrollPage() {
   let requiredImportsComplete = false;
   let locked = false;
   let storeId = "";
+  let staffIdByNickname: Record<string, string> = {};
 
   const store = await prisma.store.findUnique({
     where: { code: ZHONGSHAN_STORE_CODE },
+    include: { staff: true },
   });
   storeId = store?.id ?? "";
+  staffIdByNickname = Object.fromEntries(
+    (store?.staff ?? []).map((person) => [person.primaryNickname, person.id])
+  );
   const periodState = await getJuly2026PayPeriodState();
   locked = isPayPeriodLocked(periodState);
   const isAdmin = session.user.role === "ADMIN";
@@ -139,6 +145,15 @@ export default async function PayrollPage() {
             ) : null}
           </p>
           <PayrollSummaryTable rows={payRows} />
+          {storeId ? (
+            <PayRowStoredEditor
+              storeId={storeId}
+              rows={payRows}
+              staffIdByNickname={staffIdByNickname}
+              locked={locked}
+              isAdmin={isAdmin}
+            />
+          ) : null}
           {unmatchedNicknames.length > 0 ? (
             <section className="space-y-2">
               <h2 className="text-base font-medium">未對上的暱稱</h2>

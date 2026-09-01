@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { loadStaffMastersForStore } from "@/staff/seed-zhongshan";
 import { listTemplateTasksForStoreCode } from "@/template-tasks/manage";
 import { loadPeriodStaffInputs } from "@/pay-period-staff/manage";
+import { loadSavedStoredMap } from "@/pay-row-stored/manage";
 import {
   getJuly2026PayPeriodState,
   isPayPeriodLocked,
@@ -96,12 +97,20 @@ export async function compileJuly2026PayrollLive(): Promise<JulyPayrollCompile> 
   }
 
   const shop = await buildJulyShopInputs();
+  const store = await prisma.store.findUnique({
+    where: { code: "zhongshan" },
+  });
+  const savedStored =
+    store != null
+      ? await loadSavedStoredMap(store.id, JULY_2026_PERIOD_KEY)
+      : undefined;
   const result = compilePayPeriod({
     shop,
     checkoutLines,
     punchPairs: punches.pairs,
     noteClicks,
     noteOuterComplete,
+    savedStored,
   });
 
   let periodLabel = "2026-07（中山・fixture）";
