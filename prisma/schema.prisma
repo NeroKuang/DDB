@@ -43,9 +43,25 @@ model Store {
   staff         Staff[]
   templateTasks TemplateTask[]
   adHocTasks    AdHocTask[]
+  payPeriods    PayPeriod[]
   createdAt     DateTime       @default(now()) @map("created_at")
 
   @@map("stores")
+}
+
+/** One 門市 × 一期薪資（periodKey 如 2026-07）。 */
+model PayPeriod {
+  id           String    @id @default(cuid())
+  storeId      String    @map("store_id")
+  store        Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  periodKey    String    @map("period_key")
+  lockedAt     DateTime? @map("locked_at")
+  snapshotJson String?   @map("snapshot_json") @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@unique([storeId, periodKey])
+  @@map("pay_periods")
 }
 
 model Staff {

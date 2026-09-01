@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import { PayPeriodLockPanel } from "@/components/pay-period-lock-panel";
 import { PayrollSummaryTable } from "@/components/payroll-panels";
 import { authOptions } from "@/lib/auth-options";
 import { ensureAppBootstrap } from "@/lib/ensure-bootstrap";
+import { prisma } from "@/lib/prisma";
+import {
+  getJuly2026PayPeriodState,
+  isPayPeriodLocked,
+} from "@/pay-period/manage";
 import { compileJuly2026Payroll } from "@/payroll/compile-july-payroll";
+import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export default async function PayrollPage() {
   await ensureAppBootstrap();
@@ -29,6 +36,16 @@ export default async function PayrollPage() {
   }[] = [];
   let lockEligible = false;
   let requiredImportsComplete = false;
+  let locked = false;
+  let storeId = "";
+
+  const store = await prisma.store.findUnique({
+    where: { code: ZHONGSHAN_STORE_CODE },
+  });
+  storeId = store?.id ?? "";
+  const periodState = await getJuly2026PayPeriodState();
+  locked = isPayPeriodLocked(periodState);
+  const isAdmin = session.user.role === "ADMIN";
 
   try {
     const compiled = await compileJuly2026Payroll();
@@ -54,6 +71,7 @@ export default async function PayrollPage() {
         {periodLabel ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             期間：{periodLabel}
+            {locked ? "（已鎖定）" : ""}
             。時薪制底薪＝時薪×該列上班時數；月薪整筆落在指定場別。
           </p>
         ) : null}
@@ -70,6 +88,14 @@ export default async function PayrollPage() {
         </p>
       ) : (
         <>
+          {storeId ? (
+            <PayPeriodLockPanel
+              storeId={storeId}
+              locked={locked}
+              lockEligible={lockEligible}
+              isAdmin={isAdmin}
+            />
+          ) : null}
           <p className="text-sm text-zinc-500">
             必要匯入
             {requiredImportsComplete ? "齊全" : "未齊"}

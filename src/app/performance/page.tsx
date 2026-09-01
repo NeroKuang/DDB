@@ -13,6 +13,12 @@ import {
   resolveStaffByNickname,
 } from "@/performance/analyze-staff-performance";
 import { loadJuly2026PerformanceInput } from "@/performance/load-july-performance";
+import {
+  frozenPerformanceForNickname,
+  frozenPerformanceSummaries,
+  getJuly2026PayPeriodState,
+  isPayPeriodLocked,
+} from "@/pay-period/manage";
 
 type PageProps = {
   searchParams: Promise<{ nickname?: string }>;
@@ -27,6 +33,8 @@ export default async function PerformancePage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const input = await loadJuly2026PerformanceInput();
+  const periodState = await getJuly2026PayPeriodState();
+  const frozen = isPayPeriodLocked(periodState);
   const role = session.user.role;
   const isPersonal = role === "PERSONAL";
 
@@ -49,13 +57,15 @@ export default async function PerformancePage({ searchParams }: PageProps) {
   }
 
   if (!nickname) {
-    const rows = analyzeAllStaffPerformance({
-      allStaff: input.staff,
-      checkoutLines: input.checkoutLines,
-      noteClicks: input.noteClicks,
-      templateTasks: input.templateTasks,
-      adHocTasks: input.adHocTasks,
-    });
+    const rows = frozen
+      ? frozenPerformanceSummaries(periodState!.snapshot!)
+      : analyzeAllStaffPerformance({
+          allStaff: input.staff,
+          checkoutLines: input.checkoutLines,
+          noteClicks: input.noteClicks,
+          templateTasks: input.templateTasks,
+          adHocTasks: input.adHocTasks,
+        });
     return (
       <main className="mx-auto flex min-h-full max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6">
         <header className="space-y-2">
@@ -66,7 +76,8 @@ export default async function PerformancePage({ searchParams }: PageProps) {
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">業績面</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            期間：{input.periodLabel}。依結帳業績注記與注記分析編成。
+            期間：{input.periodLabel}
+            {frozen ? "（已鎖定）" : ""}。依結帳業績注記與注記分析編成。
           </p>
         </header>
         <PerformanceSummaryTable rows={rows} />
@@ -91,13 +102,23 @@ export default async function PerformancePage({ searchParams }: PageProps) {
     );
   }
 
-  const view = analyzeStaffPerformance({
-    staff,
-    checkoutLines: input.checkoutLines,
-    noteClicks: input.noteClicks,
-    templateTasks: input.templateTasks,
-    adHocTasks: input.adHocTasks,
-  });
+  const view =
+    frozen && periodState?.snapshot
+      ? (frozenPerformanceForNickname(periodState.snapshot, nickname) ??
+        analyzeStaffPerformance({
+          staff,
+          checkoutLines: input.checkoutLines,
+          noteClicks: input.noteClicks,
+          templateTasks: input.templateTasks,
+          adHocTasks: input.adHocTasks,
+        }))
+      : analyzeStaffPerformance({
+          staff,
+          checkoutLines: input.checkoutLines,
+          noteClicks: input.noteClicks,
+          templateTasks: input.templateTasks,
+          adHocTasks: input.adHocTasks,
+        });
 
   return (
     <main className="mx-auto flex min-h-full max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -121,6 +142,7 @@ export default async function PerformancePage({ searchParams }: PageProps) {
         <h1 className="text-2xl font-semibold tracking-tight">業績面</h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           期間：{input.periodLabel}
+          {frozen ? "（已鎖定）" : ""}
         </p>
       </header>
       <PerformanceDetail view={view} />

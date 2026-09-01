@@ -19,6 +19,10 @@ import {
 } from "@/lib/july-2026-fixtures";
 import { loadStaffMastersForStore } from "@/staff/seed-zhongshan";
 import { listTemplateTasksForStoreCode } from "@/template-tasks/manage";
+import {
+  getJuly2026PayPeriodState,
+  isPayPeriodLocked,
+} from "@/pay-period/manage";
 
 export type JulyPayrollCompile = {
   periodLabel: string;
@@ -43,7 +47,7 @@ export async function buildJulyShopInputs(): Promise<ShopInputs> {
 }
 
 /** Compile July 2026 薪資報表 from storage/ichef or fixtures + shop master. */
-export async function compileJuly2026Payroll(): Promise<JulyPayrollCompile> {
+export async function compileJuly2026PayrollLive(): Promise<JulyPayrollCompile> {
   const files =
     await loadPerformanceFilesPreferringStorage(JULY_2026_FILE_RANGE);
   const period = {
@@ -104,4 +108,21 @@ export async function compileJuly2026Payroll(): Promise<JulyPayrollCompile> {
     shop,
     result,
   };
+}
+
+/** Returns frozen snapshot when period is locked; otherwise live compile. */
+export async function compileJuly2026Payroll(): Promise<JulyPayrollCompile> {
+  const periodState = await getJuly2026PayPeriodState();
+  if (isPayPeriodLocked(periodState) && periodState?.snapshot) {
+    const snapshot = periodState.snapshot;
+    const shop = await buildJulyShopInputs();
+    return {
+      periodLabel: `${snapshot.periodLabel}（已鎖定）`,
+      periodKey: snapshot.periodKey,
+      source: "storage",
+      shop,
+      result: snapshot.compile,
+    };
+  }
+  return compileJuly2026PayrollLive();
 }

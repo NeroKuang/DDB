@@ -2,6 +2,7 @@ import type { AccountRole } from "@prisma/client";
 import type { AdHocTask as CompileAdHocTask } from "@/compile/types";
 import { prisma } from "@/lib/prisma";
 import { roundMoney } from "@/lib/money";
+import { assertPayPeriodUnlocked } from "@/pay-period/manage";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export const JULY_2026_PERIOD_KEY = "2026-07";
@@ -21,6 +22,14 @@ function requireAdmin(actorRole: AccountRole): void {
   if (actorRole !== "ADMIN") {
     throw new Error("Only Admin can change 追加任務");
   }
+}
+
+async function assertAdHocTaskPeriodUnlocked(taskId: string): Promise<void> {
+  const task = await prisma.adHocTask.findUnique({ where: { id: taskId } });
+  if (!task) {
+    throw new Error("追加任務不存在");
+  }
+  await assertPayPeriodUnlocked(task.storeId, task.periodKey);
 }
 
 function mapRow(row: {
@@ -121,6 +130,7 @@ export async function createAdHocTask(input: {
   if (!staff) {
     throw new Error("店員不屬於此門市");
   }
+  await assertPayPeriodUnlocked(input.storeId, periodKey);
   const row = await prisma.adHocTask.create({
     data: {
       storeId: input.storeId,
@@ -144,6 +154,7 @@ export async function updateAdHocTaskStoredAmount(input: {
   if (!(input.storedAmount >= 0)) {
     throw new Error("儲存值不可為負數");
   }
+  await assertAdHocTaskPeriodUnlocked(input.id);
   const row = await prisma.adHocTask.update({
     where: { id: input.id },
     data: { storedAmount: roundMoney(input.storedAmount) },
@@ -157,6 +168,7 @@ export async function confirmAdHocTask(input: {
   id: string;
 }): Promise<StoredAdHocTask> {
   requireAdmin(input.actorRole);
+  await assertAdHocTaskPeriodUnlocked(input.id);
   const row = await prisma.adHocTask.update({
     where: { id: input.id },
     data: { confirmed: true },
@@ -170,6 +182,7 @@ export async function unconfirmAdHocTask(input: {
   id: string;
 }): Promise<StoredAdHocTask> {
   requireAdmin(input.actorRole);
+  await assertAdHocTaskPeriodUnlocked(input.id);
   const row = await prisma.adHocTask.update({
     where: { id: input.id },
     data: { confirmed: false },
@@ -183,5 +196,6 @@ export async function deleteAdHocTask(input: {
   id: string;
 }): Promise<void> {
   requireAdmin(input.actorRole);
+  await assertAdHocTaskPeriodUnlocked(input.id);
   await prisma.adHocTask.delete({ where: { id: input.id } });
 }
