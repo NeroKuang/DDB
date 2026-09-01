@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { PayPeriodLockPanel } from "@/components/pay-period-lock-panel";
 import { PayrollSummaryTable } from "@/components/payroll-panels";
+import { WebFetchPanel } from "@/components/web-fetch-panel";
 import { authOptions } from "@/lib/auth-options";
 import { ensureAppBootstrap } from "@/lib/ensure-bootstrap";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +14,7 @@ import {
 } from "@/pay-period/manage";
 import { compileJuly2026Payroll } from "@/payroll/compile-july-payroll";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
+import { getWebFetchProgress } from "@/web-fetch/manage";
 
 export default async function PayrollPage() {
   await ensureAppBootstrap();
@@ -46,6 +49,12 @@ export default async function PayrollPage() {
   const periodState = await getJuly2026PayPeriodState();
   locked = isPayPeriodLocked(periodState);
   const isAdmin = session.user.role === "ADMIN";
+  const canViewFetch =
+    session.user.role === "ADMIN" || session.user.role === "SUPERVISOR";
+  const fetchProgress =
+    storeId && canViewFetch
+      ? await getWebFetchProgress(storeId, JULY_2026_PERIOD_KEY)
+      : null;
 
   try {
     const compiled = await compileJuly2026Payroll();
@@ -88,6 +97,14 @@ export default async function PayrollPage() {
         </p>
       ) : (
         <>
+          {storeId && fetchProgress ? (
+            <WebFetchPanel
+              storeId={storeId}
+              progress={fetchProgress}
+              locked={locked}
+              isAdmin={isAdmin}
+            />
+          ) : null}
           {storeId ? (
             <PayPeriodLockPanel
               storeId={storeId}

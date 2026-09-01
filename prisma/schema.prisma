@@ -23,6 +23,13 @@ enum PayKind {
   MONTHLY
 }
 
+enum WebFetchStatus {
+  IDLE
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
 model User {
   id           String      @id @default(cuid())
   username     String      @unique
@@ -54,10 +61,16 @@ model PayPeriod {
   id           String    @id @default(cuid())
   storeId      String    @map("store_id")
   store        Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  periodKey    String    @map("period_key")
-  lockedAt     DateTime? @map("locked_at")
-  snapshotJson String?   @map("snapshot_json") @db.Text
-  createdAt    DateTime  @default(now()) @map("created_at")
+  periodKey         String          @map("period_key")
+  lockedAt          DateTime?       @map("locked_at")
+  snapshotJson      String?         @map("snapshot_json") @db.Text
+  fetchStatus       WebFetchStatus    @default(IDLE) @map("fetch_status")
+  fetchStartedAt    DateTime?       @map("fetch_started_at")
+  fetchFinishedAt   DateTime?       @map("fetch_finished_at")
+  fetchErrorMessage String?         @map("fetch_error_message") @db.Text
+  fetchRangeStart   String?         @map("fetch_range_start")
+  fetchRangeEnd     String?         @map("fetch_range_end")
+  createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   @@unique([storeId, periodKey])
