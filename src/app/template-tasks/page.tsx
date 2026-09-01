@@ -54,8 +54,8 @@ export default async function TemplateTasksPage() {
         <h1 className="text-2xl font-semibold tracking-tight">模板任務</h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           門市：{store.name}。綁定 iCHEF
-          注記品項；單筆任務獎金與任務達標可並行。未綁定的點選獎金為
-          0，不會自動建檔。
+          注記品項；單筆與任務達標可並行。任務達標為累加制（達門檻加發該階，多階加總，不是只領最高階）。未綁定的點選獎金為
+          0。
         </p>
       </header>
       {isAdmin ? (
