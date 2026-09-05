@@ -1,10 +1,13 @@
+import { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
+import {
+  july2026FixturePaths,
+  july2026FixturesPresent,
+} from "@/lib/july-2026-fixtures";
+import { readFirstSheetRows } from "@/import/read-xlsx-sheet";
+import { isNoteOuterFilename } from "@/import/upload-ichef-files";
+import { storageDirForFetchRange } from "@/fetch/save-fetched-to-storage";
 import { existsSync, readdirSync } from "fs";
 import path from "path";
-import { storageDirForFetchRange } from "@/fetch/save-fetched-to-storage";
-import { isNoteOuterFilename } from "@/import/upload-ichef-files";
-import { readFirstSheetRows } from "@/import/read-xlsx-sheet";
-import { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
-import { july2026FixturePaths } from "@/lib/july-2026-fixtures";
 
 export type StoredIchefPaths = {
   checkout: string;
@@ -159,7 +162,10 @@ export async function loadPerformanceFilesPreferringStorage(
     findOverlappingStoredIchefPaths(range, storageRoot);
 
   if (!stored) {
-    if (periodKey === JULY_2026_PERIOD_KEY || !periodKey) {
+    if (
+      (periodKey === JULY_2026_PERIOD_KEY || !periodKey) &&
+      july2026FixturesPresent(fixtureRoot)
+    ) {
       return {
         source: "fixture",
         checkout: fixtures.checkout,
@@ -173,7 +179,9 @@ export async function loadPerformanceFilesPreferringStorage(
   }
 
   const noteFallback =
-    periodKey === JULY_2026_PERIOD_KEY ? fixtures.noteDrilldowns : [];
+    periodKey === JULY_2026_PERIOD_KEY && july2026FixturesPresent(fixtureRoot)
+      ? fixtures.noteDrilldowns
+      : [];
   const notes = await resolveNoteDrilldownPaths(
     stored.noteDrilldowns,
     noteFallback

@@ -111,21 +111,22 @@ export async function loadPerformanceInput(
         periodKey,
       }
     );
-    if (!files) {
-      throw new Error(
-        `本期（${periodKey}）尚無 iCHEF 匯入，請先對該月執行網頁取數或上傳。`
-      );
-    }
-    checkoutLines = await parseCheckoutFile(files.checkout, period);
-    noteClicks = (
-      await Promise.all(
-        files.noteDrilldowns.map((filePath) =>
-          parseNoteDrilldown(filePath, itemNameFromDrilldownFilename(filePath))
+    if (files) {
+      checkoutLines = await parseCheckoutFile(files.checkout, period);
+      noteClicks = (
+        await Promise.all(
+          files.noteDrilldowns.map((filePath) =>
+            parseNoteDrilldown(
+              filePath,
+              itemNameFromDrilldownFilename(filePath)
+            )
+          )
         )
-      )
-    ).flat();
-    source = files.source;
-    noteDrilldownsFromFixtureFallback = files.noteDrilldownsFromFixtureFallback;
+      ).flat();
+      source = files.source;
+      noteDrilldownsFromFixtureFallback =
+        files.noteDrilldownsFromFixtureFallback;
+    }
   }
 
   const drilldownItemNames = [

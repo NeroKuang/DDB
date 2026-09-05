@@ -64,7 +64,11 @@ export function buildPeriodDashboardAlerts(input: {
     });
   }
 
-  if (!input.requiredImportsComplete && !input.compileError) {
+  if (
+    !input.requiredImportsComplete &&
+    !input.compileError &&
+    input.hasImportRun
+  ) {
     alerts.push({
       severity: "warning",
       title: "必要匯入未齊",

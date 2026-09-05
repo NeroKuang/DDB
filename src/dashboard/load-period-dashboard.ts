@@ -1,5 +1,6 @@
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { compilePayPeriodLive } from "@/compile/compile-for-period";
+import { isEmptyImportCompileError } from "@/compile/empty-import-error";
 import { isMinioConfigured } from "@/import/minio-object-store";
 import { prisma } from "@/lib/prisma";
 import { getPayPeriodState, isPayPeriodLocked } from "@/pay-period/state";
@@ -88,7 +89,9 @@ export async function loadPeriodDashboard(input: {
       5
     );
   } catch (error) {
-    compileError = error instanceof Error ? error.message : "編成失敗";
+    const message = error instanceof Error ? error.message : "編成失敗";
+    // Empty deploy / no fetch yet — soft warning only, not「薪資編成失敗」.
+    compileError = isEmptyImportCompileError(message) ? null : message;
   }
 
   const fetch = input.canViewFetch

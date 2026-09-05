@@ -1,4 +1,5 @@
 import path from "path";
+import { existsSync } from "fs";
 
 /** Checked-in iCHEF exports covering 營業日 2026-07-01 12:00–2026-08-01 12:00 (file range 6/30–8/1). */
 export const JULY_2026_PERIOD = {
@@ -22,4 +23,10 @@ export function july2026FixturePaths(root = process.cwd()) {
     ],
     northStarCsv: path.join(root, "7月報表-中山 - 7月.csv"),
   };
+}
+
+/** True when July regression xlsx exist on disk (local/CI). False in Docker images that omit fixtures. */
+export function july2026FixturesPresent(root = process.cwd()): boolean {
+  const paths = july2026FixturePaths(root);
+  return existsSync(paths.checkout) && existsSync(paths.punches);
 }

@@ -4,6 +4,7 @@ import type {
   NoteOuterItem,
 } from "@/import/parse-note-analysis";
 import type { PunchPair } from "@/import/parse-punches";
+import { emptyPeriodImportMessage } from "@/compile/empty-import-error";
 import { getPeriodCatalogEntry } from "@/compile/period-catalog";
 import { parseCheckoutFile } from "@/import/parse-checkout";
 import { loadPerformanceFilesPreferringStorage } from "@/import/load-stored-ichef";
@@ -47,11 +48,14 @@ export async function loadPeriodImports(
     start: new Date(catalog.businessDays.startIso),
     end: new Date(catalog.businessDays.endIso),
   };
-  if (!files?.punches) {
+  if (!files) {
+    throw new Error(emptyPeriodImportMessage(periodKey));
+  }
+  if (!files.punches) {
     throw new Error(
       periodKey === "2026-07"
         ? "打卡檔缺失，無法編成薪資報表"
-        : `本期（${periodKey}）尚無 iCHEF 匯入，請先對該月執行網頁取數或上傳。`
+        : emptyPeriodImportMessage(periodKey)
     );
   }
   const checkoutLines = await parseCheckoutFile(files.checkout, period);

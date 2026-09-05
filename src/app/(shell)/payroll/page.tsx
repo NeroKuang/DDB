@@ -13,6 +13,7 @@ import { UnmatchedNicknamesPanel } from "@/components/unmatched-nicknames-panel"
 import { WebFetchPanel } from "@/components/web-fetch-panel";
 import { getServerSession } from "next-auth";
 import { compileZhongshanPayPeriod } from "@/compile/compile-for-period";
+import { isEmptyImportCompileError } from "@/compile/empty-import-error";
 import { describeLockBlockReasons } from "@/pay-period/lock-eligibility";
 import { authOptions } from "@/lib/auth-options";
 import { logServerError } from "@/lib/user-facing-error";
@@ -161,8 +162,11 @@ export default async function PayrollPage({ searchParams }: PageProps) {
       blockingUnmatchedNicknames,
     });
   } catch (error) {
-    logServerError("payroll-compile", error);
-    compileError = "無法編成本期薪資報表。請確認匯入是否齊全，或稍後再試。";
+    const raw = error instanceof Error ? error.message : "";
+    if (!isEmptyImportCompileError(raw)) {
+      logServerError("payroll-compile", error);
+      compileError = "無法編成本期薪資報表。請確認匯入是否齊全，或稍後再試。";
+    }
   }
 
   const payrollStep = resolvePayrollStep({

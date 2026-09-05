@@ -184,4 +184,17 @@ describe("loadPerformanceFilesPreferringStorage", () => {
       rmSync(storageRoot, { recursive: true, force: true });
     }
   });
+
+  it("returns null for July when fixture xlsx are absent (e.g. Docker image)", async () => {
+    const emptyRoot = mkdtempSync(path.join(tmpdir(), "ddb-perf-no-fixture-"));
+    try {
+      const missing = await loadPerformanceFilesPreferringStorage(
+        JULY_2026_FILE_RANGE,
+        { storageRoot: emptyRoot, fixtureRoot: emptyRoot, periodKey: "2026-07" }
+      );
+      expect(missing).toBeNull();
+    } finally {
+      rmSync(emptyRoot, { recursive: true, force: true });
+    }
+  });
 });
