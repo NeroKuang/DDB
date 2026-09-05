@@ -5,7 +5,8 @@ alwaysApply: true
 
 # DDB Zeabur 部署規則
 
-完整敘述：`docs/ZEABUR-OPS-RULES.md`、`docs/DEPLOY-ZEABUR.md`。Agent Spec：`docs/ZEABUR-AGENT-SPEC.md`。
+完整敘述：`docs/ZEABUR-OPS-RULES.md`、`docs/DEPLOY-ZEABUR.md`。Agent Spec：`docs/ZEABUR-AGENT-SPEC.md`。  
+**跨專案共通**另見：`Desktop/SP/docs/deployment/ZEABUR-OPS-RULES.md` 與全域 rule `zeabur-platform-ops`。
 
 ## 架構（已上線）
 

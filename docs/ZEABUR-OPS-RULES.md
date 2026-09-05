@@ -1,7 +1,10 @@
 # DDB Zeabur 部署方案與作業規則（實測）
 
 > 來源：2026-09-06 NeroSP 上線實測。Agent／人類改部署前必讀。  
+> **跨專案共通**（平台行為、Prisma／Docker、診斷）：[`../../docs/deployment/ZEABUR-OPS-RULES.md`](../../docs/deployment/ZEABUR-OPS-RULES.md)（路徑相對 `Desktop/SP`）。  
 > 步驟手冊：`DEPLOY-ZEABUR.md`　ADR：`adr/0086-zeabur-dockerfile-playwright.md`
+
+以下 **§一** 為 DDB 專屬架構；**§二–§四** 與 SP 共通規則對齊（保留於此方便單 repo 閱讀）。
 
 ---
 
