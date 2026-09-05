@@ -104,43 +104,52 @@ async function dismissAnnouncement(page: Page): Promise<void> {
 }
 
 /**
- * iCHEF PopConfirm overlays intercept pointer events and block「下載報表.xlsx」clicks.
- * Dismiss without requiring a specific confirm copy (announcement / date / permission prompts).
+ * iCHEF PopConfirm / tip overlays intercept pointer events and block downloads.
+ * Known tip after setting checkout date range:
+ * 「點擊列表最右側「＞」符號，可以查看桌號與更多訂單細節。」+「我知道了」
  */
 async function dismissBlockingOverlays(page: Page): Promise<void> {
   await dismissAnnouncement(page);
+
+  // Prefer visible tip / confirm CTA (may not be role=button in Angular markup).
+  const tipConfirm = page
+    .locator('[data-fe-test-id="popConfirm"]')
+    .getByText("我知道了", { exact: true });
+  try {
+    if (await tipConfirm.isVisible({ timeout: 800 })) {
+      await tipConfirm.click({ timeout: 3_000 });
+      await page.waitForTimeout(300);
+    }
+  } catch {
+    // fall through
+  }
+
+  for (const name of ["我知道了", "知道了", "取消", "關閉", "確定"]) {
+    const byRole = page.getByRole("button", { name, exact: true });
+    const byText = page.getByText(name, { exact: true });
+    for (const locator of [byRole, byText]) {
+      try {
+        const target = locator.last();
+        if (await target.isVisible({ timeout: 400 })) {
+          await target.click({ timeout: 3_000 });
+          await page.waitForTimeout(300);
+        }
+      } catch {
+        // try next
+      }
+    }
+  }
 
   const overlay = page.locator('[data-fe-test-id="popConfirm-overlay"]');
   if ((await overlay.count()) === 0) {
     return;
   }
 
-  // Escape often closes PopConfirm without committing a destructive action.
   await page.keyboard.press("Escape").catch(() => undefined);
   try {
     await overlay.first().waitFor({ state: "hidden", timeout: 2_000 });
-    return;
   } catch {
-    // fall through — try explicit buttons
-  }
-
-  const layer = page.locator(".gyp-base-layer, [class*='PopConfirm']").last();
-  for (const name of ["取消", "關閉", "確定", "我知道了", "知道了"]) {
-    const button = layer.getByRole("button", { name, exact: true });
-    try {
-      if (await button.isVisible({ timeout: 500 })) {
-        await button.click({ timeout: 2_000 });
-        await overlay
-          .first()
-          .waitFor({ state: "hidden", timeout: 2_000 })
-          .catch(() => undefined);
-        if ((await overlay.count()) === 0) {
-          return;
-        }
-      }
-    } catch {
-      // try next label
-    }
+    // still present — caller may force-click; we logged what we could
   }
 }
 
@@ -293,6 +302,9 @@ async function openReport(
   assertOnBusinessReports(page);
   await dismissBlockingOverlays(page);
   await setAngularDateRange(page, startDate, endDate);
+  // Tip PopConfirm often appears only after the date range is applied.
+  await page.waitForTimeout(800);
+  await dismissBlockingOverlays(page);
   await page.getByText(startDate).first().waitFor({ timeout: 30_000 });
   await dismissBlockingOverlays(page);
 }
