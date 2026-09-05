@@ -12,6 +12,9 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Placeholder only so Prisma Client can generate / Next can compile.
+# Runtime DATABASE_URL comes from Zeabur Variables (internal Postgres host).
+# Build must NOT open a real DB — shell routes are force-dynamic + bootstrap skips NEXT_PHASE=phase-production-build.
 ARG DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
 ENV DATABASE_URL=$DATABASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1

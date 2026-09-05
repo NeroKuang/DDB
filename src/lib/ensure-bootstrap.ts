@@ -5,6 +5,10 @@ import { seedStaffTitlesFromFixture } from "@/staff-titles/manage";
 
 /** Seed Admin (if env present) and 中山門市／店員 master for local demos. */
 export async function ensureAppBootstrap(): Promise<void> {
+  // `next build` must not open Postgres (Docker/Zeabur builder has no DB).
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return;
+  }
   try {
     await seedAdminIfEmpty();
   } catch (error) {

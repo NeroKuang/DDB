@@ -9,6 +9,9 @@ import { listPeriodOptions } from "@/pay-period/list-period-options";
 import { prisma } from "@/lib/prisma";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
+/** Shell reads session／Postgres；must not prerender during `next build` (no DB in image build). */
+export const dynamic = "force-dynamic";
+
 export default async function ShellLayout({
   children,
 }: {

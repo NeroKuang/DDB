@@ -5,7 +5,13 @@ import { seedAdminIfEmpty } from "@/auth/accounts";
 import { LoginForm } from "@/components/login-form";
 import { authOptions } from "@/lib/auth-options";
 
+/** Login seeds Admin and reads session — never prerender without Postgres. */
+export const dynamic = "force-dynamic";
+
 async function ensureSeedAdmin(): Promise<void> {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return;
+  }
   try {
     await seedAdminIfEmpty();
   } catch (error) {
