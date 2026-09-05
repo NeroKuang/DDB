@@ -103,6 +103,47 @@ async function dismissAnnouncement(page: Page): Promise<void> {
   }
 }
 
+/**
+ * iCHEF PopConfirm overlays intercept pointer events and block「下載報表.xlsx」clicks.
+ * Dismiss without requiring a specific confirm copy (announcement / date / permission prompts).
+ */
+async function dismissBlockingOverlays(page: Page): Promise<void> {
+  await dismissAnnouncement(page);
+
+  const overlay = page.locator('[data-fe-test-id="popConfirm-overlay"]');
+  if ((await overlay.count()) === 0) {
+    return;
+  }
+
+  // Escape often closes PopConfirm without committing a destructive action.
+  await page.keyboard.press("Escape").catch(() => undefined);
+  try {
+    await overlay.first().waitFor({ state: "hidden", timeout: 2_000 });
+    return;
+  } catch {
+    // fall through — try explicit buttons
+  }
+
+  const layer = page.locator(".gyp-base-layer, [class*='PopConfirm']").last();
+  for (const name of ["取消", "關閉", "確定", "我知道了", "知道了"]) {
+    const button = layer.getByRole("button", { name, exact: true });
+    try {
+      if (await button.isVisible({ timeout: 500 })) {
+        await button.click({ timeout: 2_000 });
+        await overlay
+          .first()
+          .waitFor({ state: "hidden", timeout: 2_000 })
+          .catch(() => undefined);
+        if ((await overlay.count()) === 0) {
+          return;
+        }
+      }
+    } catch {
+      // try next label
+    }
+  }
+}
+
 async function setAngularDateRange(
   page: Page,
   startDate: string,
@@ -208,9 +249,10 @@ async function clickDownload(
   page: Page,
   name: string | RegExp
 ): Promise<DownloadedXlsx> {
+  await dismissBlockingOverlays(page);
   const [download] = await Promise.all([
     page.waitForEvent("download", { timeout: 60_000 }),
-    page.getByText(name).first().click(),
+    page.getByText(name).first().click({ timeout: 30_000 }),
   ]);
   return saveDownload(download);
 }
@@ -249,9 +291,10 @@ async function openReport(
     waitUntil: "domcontentloaded",
   });
   assertOnBusinessReports(page);
-  await dismissAnnouncement(page);
+  await dismissBlockingOverlays(page);
   await setAngularDateRange(page, startDate, endDate);
   await page.getByText(startDate).first().waitFor({ timeout: 30_000 });
+  await dismissBlockingOverlays(page);
 }
 
 type NoteTagRow = {
