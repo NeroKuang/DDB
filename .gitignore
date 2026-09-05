@@ -40,9 +40,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local 網頁取數／測試下載（真檔勿 commit；留 .gitkeep）
+# local 網頁取數／測試下載／錯誤日誌（真檔勿 commit；留 .gitkeep）
 /storage/*
 !/storage/.gitkeep
+!/storage/logs/
+/storage/logs/**
+!/storage/logs/.gitkeep
 
 # accidental local DB（正式用 Postgres）
 /prisma/*.db

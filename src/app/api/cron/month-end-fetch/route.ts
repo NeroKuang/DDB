@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runMonthEndFetchCron } from "@/cron/month-end-fetch";
+import { logServerError } from "@/lib/user-facing-error";
 import { runWebFetchJob } from "@/web-fetch/manage";
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -8,9 +9,17 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!secret || auth !== secret) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const result = await runMonthEndFetchCron();
-  if (result.started && result.periodId) {
-    await runWebFetchJob(result.periodId);
+  try {
+    const result = await runMonthEndFetchCron();
+    if (result.started && result.periodId) {
+      await runWebFetchJob(result.periodId);
+    }
+    return NextResponse.json(result);
+  } catch (error) {
+    logServerError("cron/month-end-fetch", error);
+    return NextResponse.json(
+      { error: "month-end-fetch failed" },
+      { status: 500 }
+    );
   }
-  return NextResponse.json(result);
 }

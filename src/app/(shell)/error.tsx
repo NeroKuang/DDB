@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportClientErrorAction } from "@/lib/report-client-error";
 
 export default function ShellError({
   error,
@@ -11,6 +12,12 @@ export default function ShellError({
 }) {
   useEffect(() => {
     console.error("[shell-error]", error);
+    void reportClientErrorAction({
+      context: "shell-error",
+      message: error.message,
+      digest: error.digest,
+      stack: error.stack,
+    });
   }, [error]);
 
   return (

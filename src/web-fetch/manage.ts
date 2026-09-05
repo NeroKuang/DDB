@@ -12,6 +12,7 @@ import { assertPayPeriodUnlockedForWrite } from "@/pay-period/guards";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
 import { encodeNoteItemNameForFilename } from "@/import/parse-note-analysis";
+import { logServerError } from "@/lib/user-facing-error";
 
 export type WebFetchProgress = {
   periodKey: string;
@@ -167,6 +168,10 @@ export async function runWebFetchJob(periodId: string): Promise<void> {
         fetchErrorMessage: "iCHEF 憑證未設定",
       },
     });
+    logServerError("runWebFetchJob", new Error("iCHEF 憑證未設定"), {
+      periodId,
+      periodKey: row.periodKey,
+    });
     return;
   }
   const range = {
@@ -181,6 +186,10 @@ export async function runWebFetchJob(periodId: string): Promise<void> {
         fetchFinishedAt: new Date(),
         fetchErrorMessage: "取數日期區間缺失",
       },
+    });
+    logServerError("runWebFetchJob", new Error("取數日期區間缺失"), {
+      periodId,
+      periodKey: row.periodKey,
     });
     return;
   }
@@ -217,6 +226,12 @@ export async function runWebFetchJob(periodId: string): Promise<void> {
         fetchFinishedAt: new Date(),
         fetchErrorMessage: message.slice(0, 2000),
       },
+    });
+    logServerError("runWebFetchJob", error, {
+      periodId,
+      periodKey: row.periodKey,
+      rangeStart: range.startDate,
+      rangeEnd: range.endDate,
     });
   }
 }

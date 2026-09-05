@@ -158,3 +158,4 @@ Header：`Authorization: Bearer <CRON_SECRET>`
 | port 被佔用           | 停掉 BeyRotate 或其他佔 5432／9000 的容器後再 `docker compose up -d`                       |
 | cron 401              | `Authorization: Bearer` 與 `CRON_SECRET` 完全一致                                          |
 | 本機 port 衝突        | DDB 固定 **5003**；勿用 3000                                                               |
+| 取數／系統錯誤除錯    | 看 `storage/logs/yyyy-mm-dd/errors.log`（台北日）；密鑰已 redact。線上容器可用 exec 讀取   |

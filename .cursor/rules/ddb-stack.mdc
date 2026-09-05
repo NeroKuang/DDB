@@ -8,6 +8,7 @@ alwaysApply: true
 - Web：Next.js App Router，`src/app`，本機 **`next dev -p 5003`**，不要用 3000。
 - 詞彙只認 `CONTEXT.md`；架構認 `docs/adr/`。規格在 `.scratch/month-end-salary-compile/spec.md`。
 - 秘密只在環境變數。iCHEF 憑證不進 git、畫面、log。
+- 伺服器錯誤寫入 `storage/logs/yyyy-mm-dd/errors.log`（Asia/Taipei；見 `src/lib/error-log.ts`），勿把密碼寫進日誌。
 - 測試主接縫：匯入編成 → 7 月中山表已命名欄；網頁取數測試可打真實 iCHEF 營業報表。
 - 讀 iCHEF xlsx 用 `exceljs`，不用社群版 `xlsx`。
 - 對使用者說明用繁體中文；程式識別名用英文。
