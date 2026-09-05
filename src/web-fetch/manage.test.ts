@@ -106,7 +106,20 @@ describe("web fetch progress", () => {
     });
   });
 
+  /** Other periodKeys on the same store (e.g. stuck RUNNING from local UI) must not block. */
+  async function clearStoreRunningFetches(): Promise<void> {
+    await prisma.payPeriod.updateMany({
+      where: { storeId, fetchStatus: "RUNNING" },
+      data: {
+        fetchStatus: "FAILED",
+        fetchFinishedAt: new Date(),
+        fetchErrorMessage: "test reset concurrent RUNNING",
+      },
+    });
+  }
+
   it("marks SUCCEEDED when runner completes", async () => {
+    await clearStoreRunningFetches();
     await prisma.payPeriod.deleteMany({
       where: { storeId, periodKey: JULY_2026_PERIOD_KEY },
     });
@@ -127,6 +140,7 @@ describe("web fetch progress", () => {
   });
 
   it("marks FAILED and keeps message when runner throws", async () => {
+    await clearStoreRunningFetches();
     setWebFetchRunnerForTests(async () => {
       throw new Error("模擬斷線");
     });

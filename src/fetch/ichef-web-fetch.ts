@@ -153,40 +153,159 @@ async function dismissBlockingOverlays(page: Page): Promise<void> {
   }
 }
 
-async function setAngularDateRange(
-  page: Page,
-  startDate: string,
-  endDate: string
-): Promise<void> {
-  await page.waitForFunction(
-    () => {
-      const w = window as Window & {
-        angular?: {
-          element: (el: HTMLElement) => {
-            scope: () => { $root?: { start_date?: string } };
-          };
+/** Zeabur Chromium + iCHEF SPA cold start often exceeds 30s. */
+const ANGULAR_READY_MS = 90_000;
+
+type AngularWindow = Window & {
+  angular?: {
+    element: (el: HTMLElement) => {
+      scope: () => {
+        $root?: {
+          start_date?: string;
+          end_date?: string;
+          $apply?: () => void;
         };
       };
-      return Boolean(w.angular?.element(document.body).scope()?.$root);
-    },
-    { timeout: 30_000 }
-  );
-  await page.evaluate(
-    ({ startDate: start, endDate: end }) => {
-      const w = window as Window & {
-        angular?: {
-          element: (el: HTMLElement) => {
-            scope: () => {
-              $root: {
-                start_date: string;
-                end_date: string;
-                $apply: () => void;
-              };
+      injector: () => { get: (name: string) => unknown };
+    };
+  };
+};
+
+async function captureIchefPageDiag(page: Page): Promise<string> {
+  try {
+    const state = await page.evaluate(() => {
+      const overlays = [
+        ...document.querySelectorAll(
+          '[data-fe-test-id="popConfirm-overlay"], [data-fe-test-id="popConfirm"]'
+        ),
+      ].map((el) =>
+        (el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 200)
+      );
+      const w = window as AngularWindow;
+      let hasAngular = Boolean(w.angular);
+      let hasRoot = false;
+      try {
+        hasRoot = Boolean(w.angular?.element(document.body).scope()?.$root);
+      } catch {
+        hasRoot = false;
+      }
+      return {
+        url: location.href,
+        hasAngular,
+        hasRoot,
+        overlays: overlays.filter(Boolean).slice(0, 3),
+        body: (document.body?.innerText ?? "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 280),
+      };
+    });
+    return JSON.stringify(state);
+  } catch (error) {
+    return `diag-failed:${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+/** Probe used in-page: $root may not sit on document.body alone. */
+async function waitForAngularRoot(page: Page, label: string): Promise<void> {
+  try {
+    await page.waitForFunction(
+      () => {
+        const w = window as Window & {
+          angular?: {
+            element: (el: HTMLElement) => {
+              scope: () => { $root?: unknown };
             };
           };
         };
-      };
-      const root = w.angular?.element(document.body).scope().$root;
+        if (!w.angular?.element) {
+          return false;
+        }
+        const candidates = [
+          document.body,
+          document.querySelector("[ng-app]"),
+          document.querySelector(".ng-scope"),
+          document.querySelector("[ng-controller]"),
+        ].filter((el): el is HTMLElement => el instanceof HTMLElement);
+        for (const el of candidates) {
+          try {
+            if (w.angular.element(el).scope()?.$root) {
+              return true;
+            }
+          } catch {
+            // try next candidate
+          }
+        }
+        return false;
+      },
+      { timeout: ANGULAR_READY_MS }
+    );
+  } catch (error) {
+    const diag = await captureIchefPageDiag(page);
+    const tip = error instanceof Error ? error.message : String(error);
+    throw new IchefFetchError(
+      `Angular $root not ready (${label}) within ${ANGULAR_READY_MS}ms (${tip}); ${diag}`
+    );
+  }
+}
+
+async function setAngularDateRange(
+  page: Page,
+  startDate: string,
+  endDate: string,
+  label = "setAngularDateRange"
+): Promise<void> {
+  try {
+    await waitForAngularRoot(page, label);
+  } catch (firstError) {
+    // One reload helps when SPA boot races after goto (seen on Zeabur).
+    await page.reload({ waitUntil: "domcontentloaded" }).catch(() => undefined);
+    await page
+      .waitForLoadState("networkidle", { timeout: 15_000 })
+      .catch(() => undefined);
+    await dismissBlockingOverlays(page);
+    try {
+      await waitForAngularRoot(page, `${label}/reload`);
+    } catch {
+      throw firstError instanceof Error
+        ? firstError
+        : new IchefFetchError(String(firstError));
+    }
+  }
+  await page.evaluate(
+    ({ startDate: start, endDate: end }) => {
+      const w = window as AngularWindow;
+      if (!w.angular?.element) {
+        throw new Error("iCHEF angular missing");
+      }
+      const candidates = [
+        document.body,
+        document.querySelector("[ng-app]"),
+        document.querySelector(".ng-scope"),
+        document.querySelector("[ng-controller]"),
+      ].filter((el): el is HTMLElement => el instanceof HTMLElement);
+      let root:
+        | {
+            start_date: string;
+            end_date: string;
+            $apply: () => void;
+          }
+        | undefined;
+      for (const el of candidates) {
+        try {
+          const candidate = w.angular.element(el).scope()?.$root;
+          if (candidate?.$apply) {
+            root = candidate as {
+              start_date: string;
+              end_date: string;
+              $apply: () => void;
+            };
+            break;
+          }
+        } catch {
+          // try next
+        }
+      }
       if (!root) {
         throw new Error("iCHEF angular root missing");
       }
@@ -296,12 +415,24 @@ async function openReport(
   startDate: string,
   endDate: string
 ): Promise<void> {
+  console.info(
+    JSON.stringify({
+      level: "info",
+      context: "fetchIchef",
+      step: "openReport",
+      path,
+      at: new Date().toISOString(),
+    })
+  );
   await page.goto(`https://login.ichefpos.com${path}`, {
     waitUntil: "domcontentloaded",
   });
+  await page
+    .waitForLoadState("networkidle", { timeout: 20_000 })
+    .catch(() => undefined);
   assertOnBusinessReports(page);
   await dismissBlockingOverlays(page);
-  await setAngularDateRange(page, startDate, endDate);
+  await setAngularDateRange(page, startDate, endDate, `openReport:${path}`);
   // Tip PopConfirm often appears only after the date range is applied.
   await page.waitForTimeout(800);
   await dismissBlockingOverlays(page);
@@ -571,25 +702,35 @@ async function resolveDrilldownJobsForProductOuter(
 }
 
 async function openNoteDrilldown(page: Page, tag: NoteTagRow): Promise<void> {
-  await page.waitForFunction(
-    () => {
-      const w = window as Window & {
-        angular?: {
-          element: (el: HTMLElement) => {
-            injector: () => { get: (name: string) => unknown };
-          };
-        };
-      };
-      try {
-        return Boolean(
-          w.angular?.element(document.body).injector().get("$state")
-        );
-      } catch {
+  try {
+    await page.waitForFunction(
+      () => {
+        const w = window as AngularWindow;
+        const candidates = [
+          document.body,
+          document.querySelector("[ng-app]"),
+          document.querySelector(".ng-scope"),
+        ].filter((el): el is HTMLElement => el instanceof HTMLElement);
+        for (const el of candidates) {
+          try {
+            if (w.angular?.element(el).injector().get("$state")) {
+              return true;
+            }
+          } catch {
+            // try next
+          }
+        }
         return false;
-      }
-    },
-    { timeout: 30_000 }
-  );
+      },
+      { timeout: ANGULAR_READY_MS }
+    );
+  } catch (error) {
+    const diag = await captureIchefPageDiag(page);
+    const tip = error instanceof Error ? error.message : String(error);
+    throw new IchefFetchError(
+      `Angular $state not ready (drilldown:${tag.tagName}) within ${ANGULAR_READY_MS}ms (${tip}); ${diag}`
+    );
+  }
   await page.evaluate(
     ({ uuid, name, isComment }) => {
       const w = window as unknown as {
@@ -637,7 +778,12 @@ async function fetchAllNoteDrilldowns(
   const drilldowns: { itemName: string; file: DownloadedXlsx }[] = [];
   for (const job of jobs) {
     await openNoteDrilldown(page, job.tag);
-    await setAngularDateRange(page, startDate, endDate);
+    await setAngularDateRange(
+      page,
+      startDate,
+      endDate,
+      `drilldown:${job.outerName}`
+    );
     await page.getByText(startDate).first().waitFor({ timeout: 30_000 });
     await page
       .locator("table")
