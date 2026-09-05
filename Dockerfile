@@ -8,8 +8,18 @@ COPY prisma ./prisma
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm ci
 
+# Prisma CLI + transitive deps (effect, c12, …) for runtime `db push`.
+# Selective copy of prisma/@prisma alone omits those packages and crashes start.sh.
+FROM node:20-bookworm-slim AS prisma-cli
+WORKDIR /cli
+RUN npm install prisma@6.19.3 --ignore-scripts
+
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
+# Help Prisma detect OpenSSL on slim images (still set binaryTargets for jammy runner).
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Placeholder only so Prisma Client can generate / Next can compile.
@@ -21,7 +31,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npx prisma generate && npm run build
 
-# Official Playwright image: Chromium + system deps for 網頁取數
+# Official Playwright image: Chromium + system deps for 網頁取數（Ubuntu 22.04 / OpenSSL 3）
 FROM mcr.microsoft.com/playwright:v1.62.1-jammy AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -35,15 +45,15 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/playwright ./node_modules/playwright
 COPY --from=builder /app/node_modules/playwright-core ./node_modules/playwright-core
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=prisma-cli /cli/node_modules /opt/prisma-cli/node_modules
 COPY --from=builder /app/scripts/start.sh ./scripts/start.sh
 RUN chmod +x ./scripts/start.sh \
   && mkdir -p /app/.next/cache \
-  && chown -R pwuser:pwuser /app
+  && chown -R pwuser:pwuser /app /opt/prisma-cli
 
 USER pwuser
 EXPOSE 8080

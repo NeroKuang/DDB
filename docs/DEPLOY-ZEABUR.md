@@ -138,6 +138,9 @@ curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
 | cron 客戶端逾時但取數其實成功 | 把外部 job 逾時調到 ≥15 分；以 App／DB 的 `fetchStatus` 為準                       |
 | 本機 port                     | 開發固定 **5003**；勿用 3000                                                       |
 | 誤用 beyrotate_dev            | 該環境已下線；改掛現役正式 Project                                                 |
+| Query Engine openssl 不符     | `binaryTargets` 須含 `debian-openssl-3.0.x`（Playwright jammy）；見 ADR-0086       |
+| `prisma db push` 缺 `effect`  | runner 用 `/opt/prisma-cli` 完整 CLI 樹；勿只拷 `prisma`／`@prisma` 目錄           |
+| db push 失敗仍起服務          | `start.sh` 在 `RUN_DB_PUSH=1` 時 fail-fast（勿加 `\|\| true`）                     |
 
 ---
 
