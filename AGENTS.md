@@ -14,3 +14,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Issue tracker: local markdown under `.scratch/` (`docs/agents/issue-tracker.md`). Spec: `.scratch/month-end-salary-compile/spec.md`.
 - Frontend (this repo): `.cursor/skills/ddb-next-frontend/SKILL.md`. Also follow the global frontend rule for RWD / a11y / no surprise npm packages.
 - Tests: `/tdd` at the agreed compile seam (live iCHEF 網頁取數 + `7月報表-中山 - 7月.csv` named columns; fixture regression without network).
+- Zeabur：讀 `docs/ZEABUR-OPS-RULES.md` 與 `.cursor/rules/ddb-zeabur-deploy.mdc`（禁 `zeabur deploy`／禁服務變數 `NODE_ENV`；`RUN_DB_PUSH=0`）。

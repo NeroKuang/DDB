@@ -1,0 +1,37 @@
+---
+description: DDB Zeabur 部署實測規則（禁止 zeabur deploy、NODE_ENV、診斷流程）
+alwaysApply: true
+---
+
+# DDB Zeabur 部署規則
+
+完整敘述：`docs/ZEABUR-OPS-RULES.md`、`docs/DEPLOY-ZEABUR.md`。Agent Spec：`docs/ZEABUR-AGENT-SPEC.md`。
+
+## 架構（已上線）
+
+- Project：**NeroSP**（BeyRotate 生產；非 `beyrotate_dev`）
+- 服務：`ddb`（Git `main` + 根目錄 Dockerfile + Playwright jammy runner）
+- Postgres 庫 **`ddb`**；MinIO 私有 bucket **`ddb`**（僅內網 `minio.zeabur.internal:9000`）
+- **`RUN_DB_PUSH=0`**（初始 schema 已同步；勿再改回 1，除非刻意做 schema 變更）
+
+## 禁止
+
+- **禁止**設定服務變數 `NODE_ENV=production`（會注入 docker build → `npm ci` 跳過 devDeps → husky/`prepare` exit 127）。
+- **禁止**對 Git-backed 服務執行 `zeabur deploy`（會上傳本機目錄、PLANTYPE 變 static、忽略 Dockerfile）。重建只用 `git push`、Dashboard Redeploy、或 `zeabur service redeploy --id <id>`。
+- **禁止**未讀 repo 現有 Dockerfile／deployment list（PLANTYPE／COMMITSHA）就另寫一份「替代 Dockerfile」或改 `next.config` 的 `output`。
+- **禁止**只因 Prisma OpenSSL **warn** 就當建置主因；要找導致 **非零退出碼** 的那一行。
+- **禁止**以部署狀態 `RUNNING` 宣告成功；驗收要有 HTTP 回應 + 執行期日誌證據。
+
+## Dockerfile／Prisma（必守）
+
+- 建置期不得連 DB：需 DB 的路由 `export const dynamic = "force-dynamic"`；bootstrap 在 `NEXT_PHASE=phase-production-build` 跳過。
+- `binaryTargets` 含 **`debian-openssl-3.0.x`**（對齊 jammy runner，不是 bookworm builder）。
+- `db push` 用獨立完整 CLI 樹（`/opt/prisma-cli`）；失敗必須 fail-fast，不可 `|| true` 後仍起 server。
+
+## 診斷順序
+
+1. 先看 deployment 的 **PLANTYPE／REPONAME／COMMITSHA**（確認是 Git+Docker，不是誤上傳 static）。
+2. 沒讀過的檔案不要假設內容。
+3. 錯誤訊息裡的具體值（如 `127.0.0.1:5432`）優先於推測。
+4. 同一手法失敗兩次就換路。
+5. 部署後 502：先確認是否落在大 image 滾動空窗（本案約 1.2GB），再當故障查。

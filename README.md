@@ -97,9 +97,10 @@ Admin 也可登入後到 [**raw 保留策略**](http://localhost:5003/storage-re
 ## Zeabur 部署
 
 **完整步驟與驗收**：[`docs/DEPLOY-ZEABUR.md`](docs/DEPLOY-ZEABUR.md)（ADR-0086）。  
+**平台實測 RULES**：[`docs/ZEABUR-OPS-RULES.md`](docs/ZEABUR-OPS-RULES.md)。  
 **給 Zeabur AI Agent 的可執行 Spec**：[`docs/ZEABUR-AGENT-SPEC.md`](docs/ZEABUR-AGENT-SPEC.md)。
 
-摘要：掛在 **BeyRotate 正式／現役 Zeabur Project**（**不要**用已下線的 `beyrotate_dev`）；建置用根目錄 **Dockerfile**（含 Playwright）；MinIO bucket **`ddb` 必備**；首次 `RUN_DB_PUSH=1` 後改 `0`；網域用 `${ZEABUR_WEB_URL}`；月結／保留用**外部 cron**（月結逾時 ≥15 分）。本機基礎設施用本 repo `docker compose`，不共用 BeyRotate 本機帳密。
+摘要：掛在 **NeroSP**（BeyRotate 生產；**不要**用 `beyrotate_dev`）；根目錄 **Dockerfile**（Playwright）；MinIO bucket **`ddb`**；**`RUN_DB_PUSH=0`**（初部 schema 已完成）；網域 `${ZEABUR_WEB_URL}`；外部 cron（月結逾時 ≥15 分）。重建禁用 `zeabur deploy`；勿設服務變數 `NODE_ENV`。本機用本 repo `docker compose`。
 
 ### 變數範本（Edit as Raw）
 
@@ -116,7 +117,7 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<強密碼>
 
 CRON_SECRET=<隨機字串>
-RUN_DB_PUSH=1
+RUN_DB_PUSH=0
 
 MINIO_ENDPOINT=http://<minio-internal-host>:9000
 MINIO_ACCESS_KEY=<MinIO ROOT USER>
