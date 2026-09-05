@@ -1,4 +1,9 @@
-import type { PayRow, PayRowOriginals, Venue } from "@/compile/types";
+import type {
+  PayRow,
+  PayRowOriginals,
+  StaffKind,
+  Venue,
+} from "@/compile/types";
 
 export function formatMoney(value: number): string {
   return value.toLocaleString("zh-TW", {
@@ -16,6 +21,10 @@ export function formatHours(value: number): string {
 
 export function venueLabel(venue: Venue): string {
   return venue === "backOfHouse" ? "內場" : "外場";
+}
+
+export function staffKindLabel(kind: StaffKind): string {
+  return kind === "guest" ? "客座" : "正職";
 }
 
 export function isStoredOverride(original: number, stored: number): boolean {

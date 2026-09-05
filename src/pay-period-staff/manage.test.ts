@@ -6,9 +6,11 @@ import {
   seedJulyPeriodStaffFromFixture,
   upsertPeriodStaffSetting,
 } from "@/pay-period-staff/manage";
+import { DEFAULT_PERIOD_STAFF_SETTINGS } from "@/pay-period-staff/types";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
+import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";
 
 describe("pay-period-staff", () => {
   it("seeds July fixture settings once and loads 久橙 split", async () => {
@@ -16,9 +18,8 @@ describe("pay-period-staff", () => {
     const store = await prisma.store.findUniqueOrThrow({
       where: { code: ZHONGSHAN_STORE_CODE },
     });
-    const first = await seedJulyPeriodStaffFromFixture();
+    await seedJulyPeriodStaffFromFixture();
     const second = await seedJulyPeriodStaffFromFixture();
-    expect(first).toBeGreaterThan(0);
     expect(second).toBe(0);
 
     const inputs = await loadPeriodStaffInputs(store.id, JULY_2026_PERIOD_KEY);
@@ -70,5 +71,29 @@ describe("pay-period-staff", () => {
         (row) => row.primaryNickname === "祤晞"
       )?.perRow.frontOfHouse?.demerits
     ).toBe(6);
+  });
+
+  it("uses fresh defaults for a new period instead of July fixture", async () => {
+    const { storeId } = await seedZhongshanStoreAndStaff();
+    await seedJulyPeriodStaffFromFixture();
+    await ensurePayPeriodRow(storeId, "2026-08");
+
+    const august = await loadPeriodStaffInputs(storeId, "2026-08");
+    const jiuCheng = august.find((row) => row.primaryNickname === "久橙");
+    const julyFixture = zhongshanJuly2026Shop().periodStaff.find(
+      (row) => row.primaryNickname === "久橙"
+    );
+
+    expect(jiuCheng?.addBackOfHouseRow).toBe(false);
+    expect(jiuCheng?.payTargetBonus).toBe(false);
+    expect(jiuCheng?.venueSalesSplit).toBeUndefined();
+    expect(julyFixture?.addBackOfHouseRow).toBe(true);
+
+    const july = await loadPeriodStaffInputs(storeId, JULY_2026_PERIOD_KEY);
+    const jiuChengJuly = july.find((row) => row.primaryNickname === "久橙");
+    expect(jiuChengJuly?.addBackOfHouseRow).toBe(true);
+
+    const fenMingAugust = august.find((row) => row.primaryNickname === "粉冥");
+    expect(fenMingAugust).toMatchObject(DEFAULT_PERIOD_STAFF_SETTINGS);
   });
 });

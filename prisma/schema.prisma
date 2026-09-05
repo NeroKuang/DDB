@@ -23,6 +23,16 @@ enum PayKind {
   MONTHLY
 }
 
+enum LaborHealthInsuranceMode {
+  FIXED
+  RATIO
+}
+
+enum UnmatchedNicknameResolutionKind {
+  ATTRIBUTE_PERIOD
+  CREATE_GUEST_PERIOD
+}
+
 enum WebFetchStatus {
   IDLE
   RUNNING
@@ -68,12 +78,15 @@ model User {
 }
 
 model Store {
-  id            String         @id @default(cuid())
-  code          String         @unique
-  name          String
-  staff         Staff[]
+  id                      String         @id @default(cuid())
+  code                    String         @unique
+  name                    String
+  /** 新增店員時預填的業績成數（0～1）. */
+  defaultCommissionRate   Float          @default(0.2) @map("default_commission_rate")
+  staff                   Staff[]
   templateTasks TemplateTask[]
   adHocTasks    AdHocTask[]
+  posItems      PosItem[]
   payPeriods    PayPeriod[]
   staffTitles   StaffTitle[]
   createdAt     DateTime       @default(now()) @map("created_at")
@@ -96,8 +109,10 @@ model PayPeriod {
   fetchRangeStart   String?         @map("fetch_range_start")
   fetchRangeEnd     String?         @map("fetch_range_end")
   activeImportRunId String?         @map("active_import_run_id")
+  skippedUnmatchedNicknames String[] @default([]) @map("skipped_unmatched_nicknames")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
+  unmatchedResolutions PayPeriodUnmatchedResolution[]
   staffSettings PayPeriodStaffSetting[]
   storedPayRows PayRowStored[]
   importRuns    ImportRun[]
@@ -122,17 +137,38 @@ model Staff {
   commissionRate             Float     @default(0.2) @map("commission_rate")
   targetBonusAmount          Float     @default(0) @map("target_bonus_amount")
   laborHealthInsuranceAmount Float     @default(0) @map("labor_health_insurance_amount")
+  laborHealthInsuranceMode   LaborHealthInsuranceMode @default(FIXED) @map("labor_health_insurance_mode")
+  laborHealthInsuranceRatio  Float     @default(0) @map("labor_health_insurance_ratio")
+  laborHealthInsuranceCarryOverMonthly Boolean @default(true) @map("labor_health_insurance_carry_over_monthly")
   payNote                    String    @default("") @map("pay_note")
+  /** 客座專用：僅在該薪資期間出現在薪資報表（如 2026-07）。 */
+  guestPeriodKey             String?   @map("guest_period_key")
   aliases                    StaffAlias[]
   users                      User[]
   adHocTasks                 AdHocTask[]
   payPeriodStaffSettings     PayPeriodStaffSetting[]
   storedPayRows              PayRowStored[]
+  unmatchedAttributions      PayPeriodUnmatchedResolution[] @relation("UnmatchedAttributionTarget")
   createdAt                  DateTime  @default(now()) @map("created_at")
   updatedAt                  DateTime  @updatedAt @map("updated_at")
 
   @@unique([storeId, primaryNickname])
   @@map("staff")
+}
+
+/** 本期未對上暱稱的處理：認列給既有店員或本期客座建檔。 */
+model PayPeriodUnmatchedResolution {
+  id           String                          @id @default(cuid())
+  payPeriodId  String                          @map("pay_period_id")
+  payPeriod    PayPeriod                       @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  nickname     String
+  kind         UnmatchedNicknameResolutionKind
+  targetStaffId String?                        @map("target_staff_id")
+  targetStaff  Staff?                          @relation("UnmatchedAttributionTarget", fields: [targetStaffId], references: [id], onDelete: SetNull)
+  createdAt    DateTime                        @default(now()) @map("created_at")
+
+  @@unique([payPeriodId, nickname])
+  @@map("pay_period_unmatched_resolutions")
 }
 
 model StaffAlias {
@@ -170,6 +206,24 @@ model TemplateTaskTier {
 
   @@unique([templateTaskId, minClicks])
   @@map("template_task_tiers")
+}
+
+/** iCHEF 注記品項主檔：售價由 Admin 維護，品項名稱自匯入自動偵測。 */
+model PosItem {
+  id         String   @id @default(cuid())
+  storeId    String   @map("store_id")
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name       String
+  unitPrice  Float    @default(0) @map("unit_price")
+  /** iCHEF 兌換／贈送品：售價固定 0，不列入缺價警告。 */
+  isGift     Boolean  @default(false) @map("is_gift")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([storeId, name])
+  @@index([storeId, name])
+  @@map("pos_items")
 }
 
 /** One-off 追加任務 for a store period (periodKey e.g. 2026-07); not from POS. */
@@ -249,6 +303,7 @@ model ImportRun {
   checkoutLines  ImportCheckoutLine[]
   punchPairs     ImportPunchPair[]
   noteClicks     ImportNoteClick[]
+  noteOuterItems ImportNoteOuterItem[]
   compileRuns    CompileRun[]
 
   @@index([payPeriodId, startedAt])
@@ -309,6 +364,20 @@ model ImportNoteClick {
 
   @@index([importRunId, nickname, itemName])
   @@map("import_note_clicks")
+}
+
+/** POS 注記分析外層（品項 × 累計加減價額），供售價 ÷ 點選數。 */
+model ImportNoteOuterItem {
+  id          String    @id @default(cuid())
+  importRunId String    @map("import_run_id")
+  importRun   ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  name        String
+  clicks      Int
+  priceTotal  Float     @map("price_total")
+
+  @@unique([importRunId, name])
+  @@index([importRunId])
+  @@map("import_note_outer_items")
 }
 
 model CompileRun {

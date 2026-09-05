@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
+import { ActionStatus } from "@/components/action-status";
+import { formatTaipeiDateTime } from "@/lib/format-datetime";
+import { toUserFacingMessage } from "@/lib/user-facing-error";
 import type { WebFetchProgress } from "@/web-fetch/manage";
 import {
   startWebFetchAction,
@@ -15,7 +18,7 @@ function formatWhen(value: Date | string | null): string | null {
     return null;
   }
   const at = typeof value === "string" ? new Date(value) : value;
-  return at.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
+  return formatTaipeiDateTime(at);
 }
 
 function statusLabel(status: WebFetchProgress["status"]): string {
@@ -33,11 +36,13 @@ function statusLabel(status: WebFetchProgress["status"]): string {
 
 export function WebFetchPanel({
   storeId,
+  periodKey,
   progress,
   locked,
   isAdmin,
 }: {
   storeId: string;
+  periodKey: string;
   progress: WebFetchProgress;
   locked: boolean;
   isAdmin: boolean;
@@ -67,6 +72,10 @@ export function WebFetchPanel({
       </p>
       <dl className="grid gap-1 text-sm">
         <div className="flex gap-2">
+          <dt className="text-zinc-500">本期</dt>
+          <dd>{periodKey}</dd>
+        </div>
+        <div className="flex gap-2">
           <dt className="text-zinc-500">狀態</dt>
           <dd>{statusLabel(progress.status)}</dd>
         </div>
@@ -92,9 +101,13 @@ export function WebFetchPanel({
         ) : null}
       </dl>
       {progress.errorMessage ? (
-        <p role="alert" className="text-sm text-red-700">
-          {progress.errorMessage}
-        </p>
+        <ActionStatus
+          ok={false}
+          message={toUserFacingMessage(
+            new Error(progress.errorMessage),
+            "上次取數失敗，請稍後再試。"
+          )}
+        />
       ) : null}
       {running ? (
         <p className="text-sm text-amber-800 dark:text-amber-200">
@@ -104,6 +117,7 @@ export function WebFetchPanel({
       {canStart ? (
         <form action={action}>
           <input type="hidden" name="storeId" value={storeId} />
+          <input type="hidden" name="periodKey" value={periodKey} />
           <button
             type="submit"
             disabled={pending}
@@ -120,14 +134,7 @@ export function WebFetchPanel({
         <p className="text-xs text-zinc-500">僅 Admin 可發動取數。</p>
       ) : null}
       {state.message ? (
-        <p
-          role="status"
-          className={
-            state.ok ? "text-sm text-emerald-700" : "text-sm text-red-700"
-          }
-        >
-          {state.message}
-        </p>
+        <ActionStatus ok={state.ok} message={state.message} />
       ) : null}
     </section>
   );

@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import { ListToolbar } from "@/components/list-toolbar";
+import { useClientList } from "@/components/use-client-list";
 import {
   addStaffTitleAction,
   deleteStaffTitleAction,
@@ -8,6 +10,10 @@ import {
 } from "@/staff-titles/actions";
 
 const initial: StaffTitleActionState = { ok: false, message: "" };
+
+function titleHaystack(label: string): string {
+  return label;
+}
 
 export function StaffTitlesPanel({
   storeId,
@@ -27,32 +33,60 @@ export function StaffTitlesPanel({
     initial
   );
 
+  const list = useClientList({
+    items: titles,
+    getSearchHaystack: titleHaystack,
+  });
+
   return (
     <section className="space-y-4">
-      <ul className="flex flex-wrap gap-2">
-        {titles.map((label) => (
-          <li
-            key={label}
-            className="flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1 text-sm dark:border-zinc-700"
-          >
-            {label}
-            {isAdmin ? (
-              <form action={delAction}>
-                <input type="hidden" name="storeId" value={storeId} />
-                <input type="hidden" name="label" value={label} />
-                <button
-                  type="submit"
-                  disabled={delPending}
-                  className="text-xs text-red-600 underline"
-                  aria-label={`刪除職稱 ${label}`}
+      {titles.length > 0 ? (
+        <>
+          <ListToolbar
+            query={list.query}
+            onQueryChange={list.setQuery}
+            searchLabel="搜尋職稱"
+            searchPlaceholder="職稱名稱"
+            pageSize={list.pageSize}
+            onPageSizeChange={list.setPageSize}
+            page={list.page}
+            onPageChange={list.setPage}
+            pages={list.pages}
+            filteredCount={list.filteredCount}
+            totalCount={list.totalCount}
+          />
+          {list.filteredCount === 0 ? (
+            <p className="text-sm text-zinc-500">沒有符合的職稱。</p>
+          ) : (
+            <ul className="flex flex-wrap gap-2">
+              {list.pageItems.map((label) => (
+                <li
+                  key={label}
+                  className="flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1 text-sm dark:border-zinc-700"
                 >
-                  刪
-                </button>
-              </form>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+                  {label}
+                  {isAdmin ? (
+                    <form action={delAction}>
+                      <input type="hidden" name="storeId" value={storeId} />
+                      <input type="hidden" name="label" value={label} />
+                      <button
+                        type="submit"
+                        disabled={delPending}
+                        className="text-xs text-red-600 underline"
+                        aria-label={`刪除職稱 ${label}`}
+                      >
+                        刪
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <p className="text-sm text-zinc-500">尚無職稱標籤。</p>
+      )}
       {isAdmin ? (
         <form action={addAction} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="storeId" value={storeId} />

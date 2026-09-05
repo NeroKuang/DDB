@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
+import { logServerError, toUserFacingMessage } from "@/lib/user-facing-error";
+import { periodKeyFromFormData } from "@/lib/resolve-period-key";
+import { assertPayPeriodUnlockedForWrite } from "@/pay-period/guards";
 
 export type RecountActionState = {
   ok: boolean;
@@ -24,7 +26,8 @@ export async function recountPayPeriodAction(
     return { ok: false, message: "門市缺失。" };
   }
   try {
-    await assertJulyPayPeriodUnlocked(storeId);
+    const periodKey = periodKeyFromFormData(formData);
+    await assertPayPeriodUnlockedForWrite(storeId, periodKey);
     revalidatePath("/payroll");
     revalidatePath("/performance");
     return {
@@ -32,9 +35,10 @@ export async function recountPayPeriodAction(
       message: "已重算本期原始數字（未改動的儲存值維持不變）。",
     };
   } catch (error) {
+    logServerError("recountPayPeriodAction", error);
     return {
       ok: false,
-      message: error instanceof Error ? error.message : String(error),
+      message: toUserFacingMessage(error, "重算失敗，請稍後再試。"),
     };
   }
 }

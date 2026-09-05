@@ -8,9 +8,10 @@ import {
 import { runIngestPipeline } from "@/import/ingest/run-ingest-pipeline";
 import { prisma } from "@/lib/prisma";
 import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";
-import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
+import { assertPayPeriodUnlockedForWrite } from "@/pay-period/guards";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
+import { encodeNoteItemNameForFilename } from "@/import/parse-note-analysis";
 
 export type WebFetchProgress = {
   periodKey: string;
@@ -34,11 +35,22 @@ export function setWebFetchRunnerForTests(runner: WebFetchRunner | null): void {
 }
 
 function fetchedToUploadInputs(fetched: FetchedIchefFiles) {
+  const rangeSuffix = (() => {
+    const match = fetched.noteOuter.filename.match(
+      /(_\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}\.xlsx)$/i
+    );
+    return match?.[1] ?? ".xlsx";
+  })();
   return [
     fetched.checkout,
     fetched.punches,
     fetched.noteOuter,
-    ...fetched.noteDrilldowns.map((item) => item.file),
+    // Rename drill-downs to outer 品項名 so ingest does not treat
+    // iCHEF's「文字註記分析_*.xlsx」as the note outer / wrong item key.
+    ...fetched.noteDrilldowns.map((item) => ({
+      filename: `${encodeNoteItemNameForFilename(item.itemName)}${rangeSuffix}`,
+      bytes: item.file.bytes,
+    })),
   ];
 }
 
@@ -111,7 +123,7 @@ export async function startWebFetch(input: {
   periodKey: string;
 }): Promise<WebFetchProgress> {
   requireAdmin(input.actorRole);
-  await assertJulyPayPeriodUnlocked(input.storeId);
+  await assertPayPeriodUnlockedForWrite(input.storeId, input.periodKey);
   const creds = readIchefCredentialsFromEnv();
   if (!creds) {
     throw new Error("iCHEF 憑證未設定（STORE_ID／LOGIN_ID／LOGIN_PASSWORD）");
@@ -186,6 +198,7 @@ export async function runWebFetchJob(periodId: string): Promise<void> {
       source: "WEB_FETCH",
       files: fetchedToUploadInputs(fetched),
       fileRange: range,
+      noteOuterItems: fetched.noteOuterItems,
     });
     await prisma.payPeriod.update({
       where: { id: periodId },

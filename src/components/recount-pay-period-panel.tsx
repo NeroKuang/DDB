@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ActionStatus } from "@/components/action-status";
 import {
   recountPayPeriodAction,
   type RecountActionState,
@@ -10,10 +11,12 @@ const initial: RecountActionState = { ok: false, message: "" };
 
 export function RecountPayPeriodPanel({
   storeId,
+  periodKey,
   locked,
   isAdmin,
 }: {
   storeId: string;
+  periodKey: string;
   locked: boolean;
   isAdmin: boolean;
 }) {
@@ -27,8 +30,9 @@ export function RecountPayPeriodPanel({
   }
 
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2">
+    <form action={action} className="inline-flex flex-wrap items-center gap-2">
       <input type="hidden" name="storeId" value={storeId} />
+      <input type="hidden" name="periodKey" value={periodKey} />
       <button
         type="submit"
         disabled={pending}
@@ -37,14 +41,7 @@ export function RecountPayPeriodPanel({
         {pending ? "重算中…" : "重算本期"}
       </button>
       {state.message ? (
-        <span
-          role="status"
-          className={
-            state.ok ? "text-sm text-emerald-700" : "text-sm text-red-700"
-          }
-        >
-          {state.message}
-        </span>
+        <ActionStatus ok={state.ok} message={state.message} />
       ) : null}
     </form>
   );

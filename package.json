@@ -5,14 +5,17 @@
   "scripts": {
     "dev": "dotenv -e .env.local -e .env -- sh -c 'export NEXTAUTH_URL=${NEXTAUTH_URL:-$AUTH_URL}; export NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-$AUTH_SECRET}; next dev -p 5003'",
     "build": "prisma generate && next build",
-    "start": "next start -p 5003",
+    "start": "sh -c 'next start -p ${PORT:-5003}'",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests --exclude src/fetch/ichef-web-fetch.test.ts",
+    "test": "vitest run --passWithNoTests --exclude src/fetch/ichef-web-fetch.test.ts --exclude src/fetch/ichef-reingest-august.test.ts",
     "test:ichef": "vitest run src/fetch/ichef-web-fetch.test.ts",
+    "test:ichef-reingest-august": "dotenv -e .env.local -e .env -- vitest run src/fetch/ichef-reingest-august.test.ts",
     "postinstall": "prisma generate",
     "db:push": "dotenv -e .env.local -e .env -- prisma db push",
     "db:generate": "prisma generate",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
     "prepare": "husky"
   },
   "dependencies": {

@@ -41,6 +41,7 @@ describe("pay period lock", () => {
       compile: {
         payRows: [],
         unmatchedNicknames: [],
+        blockingUnmatchedNicknames: [],
         unmatchedClicks: [],
         lockEligible: true,
         requiredImportsComplete: true,
@@ -81,6 +82,7 @@ describe("pay period lock", () => {
       compile: {
         payRows: [],
         unmatchedNicknames: [],
+        blockingUnmatchedNicknames: [],
         unmatchedClicks: [],
         lockEligible: true,
         requiredImportsComplete: true,

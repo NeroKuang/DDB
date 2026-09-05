@@ -5,7 +5,7 @@ import type {
   Venue,
 } from "@/compile/types";
 
-const RATE = 0.2;
+import { DEFAULT_COMMISSION_RATE } from "@/lib/commission-rate";
 
 function hourly(
   title: string,
@@ -23,9 +23,12 @@ function hourly(
     payKind: "hourly",
     hourlyRate,
     monthlyPay: 0,
-    commissionRate: RATE,
+    commissionRate: DEFAULT_COMMISSION_RATE,
     targetBonusAmount: 0,
     laborHealthInsuranceAmount: 0,
+    laborHealthInsuranceMode: "fixed",
+    laborHealthInsuranceRatio: 0,
+    laborHealthInsuranceCarryOverMonthly: true,
     payNote: "",
     ...extras,
   };
@@ -58,9 +61,12 @@ function guest(
     payKind: "monthly",
     hourlyRate: 0,
     monthlyPay: 2000,
-    commissionRate: RATE,
+    commissionRate: DEFAULT_COMMISSION_RATE,
     targetBonusAmount: 0,
     laborHealthInsuranceAmount: 0,
+    laborHealthInsuranceMode: "fixed",
+    laborHealthInsuranceRatio: 0,
+    laborHealthInsuranceCarryOverMonthly: true,
     payNote: "麻煩匯給叔叔",
     ...extras,
   };

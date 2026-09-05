@@ -1,8 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { PERIOD_QUERY_PARAM } from "@/components/period-selector";
+import { ListToolbar } from "@/components/list-toolbar";
+import { useClientList } from "@/components/use-client-list";
 import type {
   MoneyPair,
   StaffPerformanceView,
 } from "@/performance/analyze-staff-performance";
+import { formatTaipeiDateTime } from "@/lib/format-datetime";
 
 function formatMoney(value: number): string {
   return value.toLocaleString("zh-TW", {
@@ -12,7 +18,7 @@ function formatMoney(value: number): string {
 }
 
 function formatWhen(at: Date): string {
-  return at.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
+  return formatTaipeiDateTime(at) ?? "—";
 }
 
 function MoneyPairCell({ pair }: { pair: MoneyPair }) {
@@ -45,52 +51,90 @@ function MoneyPairDl({ label, pair }: { label: string; pair: MoneyPair }) {
   );
 }
 
+function performanceHaystack(row: StaffPerformanceView): string {
+  return [row.primaryNickname, row.legalName].join(" ");
+}
+
 export function PerformanceSummaryTable({
   rows,
+  periodKey,
 }: {
   rows: StaffPerformanceView[];
+  periodKey: string;
 }) {
+  const list = useClientList({
+    items: rows,
+    getSearchHaystack: performanceHaystack,
+  });
+
   if (rows.length === 0) {
     return <p className="text-sm text-zinc-500">本期沒有業績注記。</p>;
   }
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
-        <thead>
-          <tr className="border-b border-zinc-300">
-            <th className="py-2 pr-3 font-medium">暱稱</th>
-            <th className="py-2 pr-3 font-medium">本名</th>
-            <th className="py-2 pr-3 font-medium">個人業績（採用／原始）</th>
-            <th className="py-2 font-medium">業績獎金（採用／原始）</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.primaryNickname} className="border-b border-zinc-200">
-              <td className="py-2 pr-3">
-                <Link
-                  href={`/performance?nickname=${encodeURIComponent(row.primaryNickname)}`}
-                  className="underline underline-offset-2"
+    <div className="space-y-3">
+      <ListToolbar
+        query={list.query}
+        onQueryChange={list.setQuery}
+        searchLabel="搜尋店員"
+        searchPlaceholder="暱稱、本名"
+        pageSize={list.pageSize}
+        onPageSizeChange={list.setPageSize}
+        page={list.page}
+        onPageChange={list.setPage}
+        pages={list.pages}
+        filteredCount={list.filteredCount}
+        totalCount={list.totalCount}
+      />
+      {list.filteredCount === 0 ? (
+        <p className="text-sm text-zinc-500">沒有符合的店員。</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-300">
+                <th className="py-2 pr-3 font-medium">暱稱</th>
+                <th className="py-2 pr-3 font-medium">本名</th>
+                <th className="py-2 pr-3 font-medium">
+                  個人業績（採用／原始）
+                </th>
+                <th className="py-2 font-medium">業績獎金（採用／原始）</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.pageItems.map((row) => (
+                <tr
+                  key={row.primaryNickname}
+                  className="border-b border-zinc-200"
                 >
-                  {row.primaryNickname}
-                </Link>
-              </td>
-              <td className="py-2 pr-3">{row.legalName || "—"}</td>
-              <td className="py-2 pr-3">
-                <MoneyPairCell pair={row.personalSales} />
-              </td>
-              <td className="py-2">
-                <MoneyPairCell pair={row.commission} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                  <td className="py-2 pr-3">
+                    <Link
+                      href={`/performance?nickname=${encodeURIComponent(row.primaryNickname)}&${PERIOD_QUERY_PARAM}=${encodeURIComponent(periodKey)}`}
+                      className="underline underline-offset-2"
+                    >
+                      {row.primaryNickname}
+                    </Link>
+                  </td>
+                  <td className="py-2 pr-3">{row.legalName || "—"}</td>
+                  <td className="py-2 pr-3">
+                    <MoneyPairCell pair={row.personalSales} />
+                  </td>
+                  <td className="py-2">
+                    <MoneyPairCell pair={row.commission} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
 export function PerformanceDetail({ view }: { view: StaffPerformanceView }) {
+  const missingPriceRows = view.noteList.filter((row) => row.missingPrice);
+  const giftRows = view.noteList.filter((row) => row.isGift);
+
   return (
     <div className="flex flex-col gap-8">
       <section className="space-y-2">
@@ -184,27 +228,71 @@ export function PerformanceDetail({ view }: { view: StaffPerformanceView }) {
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">注記分析列表</h2>
+        <p className="text-sm text-zinc-500">
+          售價／總賣出依品項管理 POS 售價；常態抽成＝總賣出 ×
+          店員業績成數（與結帳業績獎金同一比例）。
+          模板任務為額外任務獎金，與售價無關。
+        </p>
+        {missingPriceRows.length > 0 ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+          >
+            <p className="font-medium">
+              {missingPriceRows.length} 個品項售價未設定（非贈送品）
+            </p>
+            <p className="mt-1">
+              請至{" "}
+              <Link href="/pos-items" className="underline underline-offset-2">
+                品項管理
+              </Link>{" "}
+              填寫 POS 售價，或按「從匯入建議售價」一次帶入。
+            </p>
+          </div>
+        ) : null}
         {view.noteList.length === 0 ? (
           <p className="text-sm text-zinc-500">本期沒有注記點選。</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[24rem] border-collapse text-left text-sm">
+            <table className="w-full min-w-[28rem] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-300">
                   <th className="py-2 pr-3 font-medium">品項</th>
                   <th className="py-2 pr-3 font-medium">點選數</th>
-                  <th className="py-2 pr-3 font-medium">單筆小計</th>
+                  <th className="py-2 pr-3 font-medium">售價</th>
+                  <th className="py-2 pr-3 font-medium">總賣出</th>
+                  <th className="py-2 pr-3 font-medium">常態抽成</th>
                   <th className="py-2 pr-3 font-medium">任務達標</th>
-                  <th className="py-2 font-medium">任務獎金（採用／原始）</th>
+                  <th className="py-2 font-medium">額外任務獎金</th>
                 </tr>
               </thead>
               <tbody>
                 {view.noteList.map((row) => (
-                  <tr key={row.itemName} className="border-b border-zinc-200">
-                    <td className="py-2 pr-3">{row.itemName}</td>
+                  <tr
+                    key={row.itemName}
+                    className="border-b border-zinc-200 align-top"
+                  >
+                    <td className="max-w-[14rem] py-2 pr-3 [word-break:keep-all] leading-snug">
+                      <span>{row.itemName}</span>
+                      {row.isGift ? (
+                        <span className="ml-1.5 inline-block whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800 align-middle">
+                          贈送
+                        </span>
+                      ) : row.missingPrice ? (
+                        <span className="ml-1.5 inline-block whitespace-nowrap text-xs text-amber-700 align-middle">
+                          缺價
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="py-2 pr-3 tabular-nums">{row.clicks}</td>
                     <td className="py-2 pr-3 tabular-nums">
-                      {formatMoney(row.perClickBonus)}
+                      {formatMoney(row.unitPrice ?? 0)}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {formatMoney(row.totalSold ?? 0)}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {formatMoney(row.baseCommission ?? 0)}
                     </td>
                     <td className="py-2 pr-3 tabular-nums">
                       {formatMoney(row.targetBonus)}
@@ -218,6 +306,12 @@ export function PerformanceDetail({ view }: { view: StaffPerformanceView }) {
             </table>
           </div>
         )}
+        {giftRows.length > 0 ? (
+          <p className="text-xs text-sky-700">
+            含 {giftRows.length} 個 iCHEF 兌換／贈送品，售價 0
+            為正常，不計入缺價警告。
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-2">

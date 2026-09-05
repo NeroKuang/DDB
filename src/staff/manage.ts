@@ -5,8 +5,12 @@ import {
   type PublicUser,
 } from "@/auth/accounts";
 import { prisma } from "@/lib/prisma";
+import { parseLaborHealthMode } from "@/lib/labor-health-insurance";
 import { roundMoney } from "@/lib/money";
-import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
+import {
+  assertJulyPayPeriodUnlocked,
+  assertPayPeriodUnlockedForWrite,
+} from "@/pay-period/guards";
 import {
   defaultLoginUsernameFromPhone,
   defaultPasswordFromContactPhone,
@@ -22,12 +26,16 @@ export type StaffRecord = {
   aliases: string[];
   title: string;
   kind: "regular" | "guest";
+  guestPeriodKey: string | null;
   payKind: "hourly" | "monthly";
   hourlyRate: number;
   monthlyPay: number;
   commissionRate: number;
   targetBonusAmount: number;
   laborHealthInsuranceAmount: number;
+  laborHealthInsuranceMode: "fixed" | "ratio";
+  laborHealthInsuranceRatio: number;
+  laborHealthInsuranceCarryOverMonthly: boolean;
   payNote: string;
   personalAccount: { id: string; username: string } | null;
 };
@@ -39,14 +47,29 @@ export type StaffWriteInput = {
   aliases: string[];
   title: string;
   kind: "regular" | "guest";
+  guestPeriodKey: string | null;
   payKind: "hourly" | "monthly";
   hourlyRate: number;
   monthlyPay: number;
   commissionRate: number;
   targetBonusAmount: number;
   laborHealthInsuranceAmount: number;
+  laborHealthInsuranceMode: "fixed" | "ratio";
+  laborHealthInsuranceRatio: number;
+  laborHealthInsuranceCarryOverMonthly: boolean;
   payNote: string;
 };
+
+function normalizeGuestPeriodKey(input: StaffWriteInput): string | null {
+  const raw = input.guestPeriodKey?.trim() ?? "";
+  if (input.kind === "guest") {
+    if (!raw) {
+      throw new Error("客座須指定薪資期間（如 2026-07）。");
+    }
+    return raw;
+  }
+  return null;
+}
 
 function requireAdmin(actorRole: AccountRole): void {
   if (actorRole !== "ADMIN") {
@@ -60,6 +83,16 @@ function toDbKind(kind: StaffWriteInput["kind"]): StaffKind {
 
 function toDbPayKind(kind: StaffWriteInput["payKind"]): PayKind {
   return kind === "monthly" ? "MONTHLY" : "HOURLY";
+}
+
+function toDbLaborMode(mode: StaffWriteInput["laborHealthInsuranceMode"]) {
+  return mode === "ratio" ? "RATIO" : "FIXED";
+}
+
+function fromDbLaborMode(
+  mode: "FIXED" | "RATIO"
+): StaffRecord["laborHealthInsuranceMode"] {
+  return mode === "RATIO" ? "ratio" : "fixed";
 }
 
 function mapStaff(row: {
@@ -76,7 +109,11 @@ function mapStaff(row: {
   commissionRate: number;
   targetBonusAmount: number;
   laborHealthInsuranceAmount: number;
+  laborHealthInsuranceMode: "FIXED" | "RATIO";
+  laborHealthInsuranceRatio: number;
+  laborHealthInsuranceCarryOverMonthly: boolean;
   payNote: string;
+  guestPeriodKey: string | null;
   aliases: { nickname: string }[];
   users: { id: string; username: string; role: string }[];
 }): StaffRecord {
@@ -90,12 +127,17 @@ function mapStaff(row: {
     aliases: row.aliases.map((alias) => alias.nickname),
     title: row.title,
     kind: row.kind === "GUEST" ? "guest" : "regular",
+    guestPeriodKey: row.guestPeriodKey,
     payKind: row.payKind === "MONTHLY" ? "monthly" : "hourly",
     hourlyRate: row.hourlyRate,
     monthlyPay: row.monthlyPay,
     commissionRate: row.commissionRate,
     targetBonusAmount: row.targetBonusAmount,
     laborHealthInsuranceAmount: row.laborHealthInsuranceAmount,
+    laborHealthInsuranceMode: fromDbLaborMode(row.laborHealthInsuranceMode),
+    laborHealthInsuranceRatio: row.laborHealthInsuranceRatio,
+    laborHealthInsuranceCarryOverMonthly:
+      row.laborHealthInsuranceCarryOverMonthly,
     payNote: row.payNote,
     personalAccount: personal
       ? { id: personal.id, username: personal.username }
@@ -116,6 +158,17 @@ export function parseAliasesField(raw: string): string[] {
   return [...new Set(parts)];
 }
 
+async function assertStaffWriteAllowed(
+  storeId: string,
+  data: StaffWriteInput
+): Promise<void> {
+  if (data.kind === "guest" && data.guestPeriodKey) {
+    await assertPayPeriodUnlockedForWrite(storeId, data.guestPeriodKey);
+    return;
+  }
+  await assertJulyPayPeriodUnlocked(storeId);
+}
+
 function normalizeStaffInput(input: StaffWriteInput): StaffWriteInput {
   const primaryNickname = input.primaryNickname.trim();
   if (!primaryNickname) {
@@ -124,13 +177,24 @@ function normalizeStaffInput(input: StaffWriteInput): StaffWriteInput {
   if (input.commissionRate < 0 || input.commissionRate > 1) {
     throw new Error("業績成數須在 0～1 之間");
   }
+  if (
+    input.laborHealthInsuranceRatio < 0 ||
+    input.laborHealthInsuranceRatio > 1
+  ) {
+    throw new Error("勞健保比例須在 0～1 之間");
+  }
+  const guestPeriodKey = normalizeGuestPeriodKey(input);
   return {
     ...input,
+    laborHealthInsuranceMode: parseLaborHealthMode(
+      String(input.laborHealthInsuranceMode)
+    ),
     legalName: input.legalName.trim(),
     primaryNickname,
     contactPhone: input.contactPhone.trim(),
     title: input.title.trim(),
     payNote: input.payNote.trim(),
+    guestPeriodKey,
     aliases: [
       ...new Set(input.aliases.map((alias) => alias.trim()).filter(Boolean)),
     ],
@@ -138,6 +202,7 @@ function normalizeStaffInput(input: StaffWriteInput): StaffWriteInput {
     monthlyPay: roundMoney(input.monthlyPay),
     targetBonusAmount: roundMoney(input.targetBonusAmount),
     laborHealthInsuranceAmount: roundMoney(input.laborHealthInsuranceAmount),
+    laborHealthInsuranceRatio: input.laborHealthInsuranceRatio,
     commissionRate: input.commissionRate,
   };
 }
@@ -189,8 +254,8 @@ export async function createStaff(input: {
   data: StaffWriteInput;
 }): Promise<StaffRecord> {
   requireAdmin(input.actorRole);
-  await assertJulyPayPeriodUnlocked(input.storeId);
   const data = normalizeStaffInput(input.data);
+  await assertStaffWriteAllowed(input.storeId, data);
   const row = await prisma.staff.create({
     data: {
       storeId: input.storeId,
@@ -205,7 +270,12 @@ export async function createStaff(input: {
       commissionRate: data.commissionRate,
       targetBonusAmount: data.targetBonusAmount,
       laborHealthInsuranceAmount: data.laborHealthInsuranceAmount,
+      laborHealthInsuranceMode: toDbLaborMode(data.laborHealthInsuranceMode),
+      laborHealthInsuranceRatio: data.laborHealthInsuranceRatio,
+      laborHealthInsuranceCarryOverMonthly:
+        data.laborHealthInsuranceCarryOverMonthly,
       payNote: data.payNote,
+      guestPeriodKey: data.guestPeriodKey,
     },
     include: staffInclude,
   });
@@ -228,7 +298,7 @@ export async function updateStaff(input: {
   if (!existing) {
     throw new Error("店員不存在");
   }
-  await assertJulyPayPeriodUnlocked(existing.storeId);
+  await assertStaffWriteAllowed(existing.storeId, data);
   await prisma.staff.update({
     where: { id: input.id },
     data: {
@@ -243,7 +313,12 @@ export async function updateStaff(input: {
       commissionRate: data.commissionRate,
       targetBonusAmount: data.targetBonusAmount,
       laborHealthInsuranceAmount: data.laborHealthInsuranceAmount,
+      laborHealthInsuranceMode: toDbLaborMode(data.laborHealthInsuranceMode),
+      laborHealthInsuranceRatio: data.laborHealthInsuranceRatio,
+      laborHealthInsuranceCarryOverMonthly:
+        data.laborHealthInsuranceCarryOverMonthly,
       payNote: data.payNote,
+      guestPeriodKey: data.guestPeriodKey,
     },
   });
   await replaceAliases(input.id, data.aliases);

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PERIOD_QUERY_PARAM } from "@/components/period-selector";
 import type { DashboardAlert } from "@/dashboard/build-alerts";
 import type { PeriodDashboardStatus } from "@/dashboard/load-period-dashboard";
 
@@ -193,18 +194,23 @@ export function DashboardOverview({
 
 export function PersonalDashboardOverview({
   primaryNickname,
+  periodKey,
 }: {
   primaryNickname?: string | null;
+  periodKey: string;
 }) {
+  const periodQuery = `${PERIOD_QUERY_PARAM}=${encodeURIComponent(periodKey)}`;
   const href = primaryNickname
-    ? `/performance?nickname=${encodeURIComponent(primaryNickname)}`
-    : "/performance";
+    ? `/performance?nickname=${encodeURIComponent(primaryNickname)}&${periodQuery}`
+    : `/performance?${periodQuery}`;
   return (
     <div className="space-y-4">
       <h1 className="font-display text-3xl font-semibold tracking-wide">
         中控台
       </h1>
-      <p className="text-sm text-muted">個人帳號僅能查看自己的業績面。</p>
+      <p className="text-sm text-muted">
+        個人帳號僅能查看自己的業績面。請用上方選單切換薪資期間。
+      </p>
       <Link href={href} className="btn-primary inline-block">
         查看我的業績面
       </Link>

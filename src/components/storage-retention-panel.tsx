@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import { ListToolbar } from "@/components/list-toolbar";
+import { useClientList } from "@/components/use-client-list";
 import type { RawRetentionGroupView } from "@/storage-retention/list-groups";
 import {
   archiveRawPeriodAction,
@@ -9,6 +11,82 @@ import {
 } from "@/storage-retention/actions";
 
 const initial: StorageRetentionActionState = { ok: false, message: "" };
+
+function retentionGroupHaystack(group: RawRetentionGroupView): string {
+  return [
+    group.storeName,
+    group.storeCode,
+    group.periodKey,
+    group.policyLabel,
+    group.stateLabel,
+  ].join(" ");
+}
+
+function RawRetentionGroupTable({
+  groups,
+}: {
+  groups: RawRetentionGroupView[];
+}) {
+  const list = useClientList({
+    items: groups,
+    getSearchHaystack: retentionGroupHaystack,
+  });
+
+  return (
+    <div className="space-y-3">
+      <ListToolbar
+        query={list.query}
+        onQueryChange={list.setQuery}
+        searchLabel="搜尋存檔"
+        searchPlaceholder="門市、期間、策略、現況"
+        pageSize={list.pageSize}
+        onPageSizeChange={list.setPageSize}
+        page={list.page}
+        onPageChange={list.setPage}
+        pages={list.pages}
+        filteredCount={list.filteredCount}
+        totalCount={list.totalCount}
+      />
+      {list.filteredCount === 0 ? (
+        <p className="text-sm text-zinc-500">沒有符合的紀錄。</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-left dark:border-zinc-700">
+                <th className="py-2 pr-3 font-medium">門市</th>
+                <th className="py-2 pr-3 font-medium">期間</th>
+                <th className="py-2 pr-3 font-medium">月齡</th>
+                <th className="py-2 pr-3 font-medium">策略</th>
+                <th className="py-2 pr-3 font-medium">現況</th>
+                <th className="py-2 pr-3 font-medium">檔案數</th>
+                <th className="py-2 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.pageItems.map((group) => (
+                <tr
+                  key={`${group.storeCode}-${group.periodKey}`}
+                  className="border-b border-zinc-100 dark:border-zinc-800"
+                >
+                  <td className="py-2 pr-3">{group.storeName}</td>
+                  <td className="py-2 pr-3">{group.periodKey}</td>
+                  <td className="py-2 pr-3">{group.ageMonths}</td>
+                  <td className="py-2 pr-3">{group.policyLabel}</td>
+                  <td className="py-2 pr-3">{group.stateLabel}</td>
+                  <td className="py-2 pr-3">{group.fileCount}</td>
+                  <td className="py-2">
+                    <GroupActions group={group} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function GroupActions({ group }: { group: RawRetentionGroupView }) {
   const [archiveState, archiveAction, archivePending] = useActionState(
@@ -114,39 +192,7 @@ export function StorageRetentionPanel({
         {groups.length === 0 ? (
           <p className="text-sm text-zinc-500">尚無 ImportRun 原始檔紀錄。</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-left dark:border-zinc-700">
-                  <th className="py-2 pr-3 font-medium">門市</th>
-                  <th className="py-2 pr-3 font-medium">期間</th>
-                  <th className="py-2 pr-3 font-medium">月齡</th>
-                  <th className="py-2 pr-3 font-medium">策略</th>
-                  <th className="py-2 pr-3 font-medium">現況</th>
-                  <th className="py-2 pr-3 font-medium">檔案數</th>
-                  <th className="py-2 font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((group) => (
-                  <tr
-                    key={`${group.storeCode}-${group.periodKey}`}
-                    className="border-b border-zinc-100 dark:border-zinc-800"
-                  >
-                    <td className="py-2 pr-3">{group.storeName}</td>
-                    <td className="py-2 pr-3">{group.periodKey}</td>
-                    <td className="py-2 pr-3">{group.ageMonths}</td>
-                    <td className="py-2 pr-3">{group.policyLabel}</td>
-                    <td className="py-2 pr-3">{group.stateLabel}</td>
-                    <td className="py-2 pr-3">{group.fileCount}</td>
-                    <td className="py-2">
-                      <GroupActions group={group} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <RawRetentionGroupTable groups={groups} />
         )}
       </section>
     </div>

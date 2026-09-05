@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import { ListToolbar } from "@/components/list-toolbar";
+import { useClientList } from "@/components/use-client-list";
 import {
   confirmAdHocTaskAction,
   createAdHocTaskAction,
@@ -27,6 +29,78 @@ function formatHours(value: number | undefined): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+}
+
+function adHocTaskHaystack(task: StoredAdHocTask): string {
+  return [
+    task.primaryNickname,
+    task.name,
+    task.confirmed ? "已確認" : "待確認",
+  ].join(" ");
+}
+
+function AdHocTaskListTable({
+  tasks,
+  staffOriginalHours,
+  deleteAction,
+  deletePending,
+}: {
+  tasks: StoredAdHocTask[];
+  staffOriginalHours: Record<string, number>;
+  deleteAction: (payload: FormData) => void;
+  deletePending: boolean;
+}) {
+  const list = useClientList({
+    items: tasks,
+    getSearchHaystack: adHocTaskHaystack,
+  });
+
+  return (
+    <div className="space-y-3">
+      <ListToolbar
+        query={list.query}
+        onQueryChange={list.setQuery}
+        searchLabel="搜尋追加任務"
+        searchPlaceholder="暱稱、任務名稱、狀態"
+        pageSize={list.pageSize}
+        onPageSizeChange={list.setPageSize}
+        page={list.page}
+        onPageChange={list.setPage}
+        pages={list.pages}
+        filteredCount={list.filteredCount}
+        totalCount={list.totalCount}
+      />
+      {list.filteredCount === 0 ? (
+        <p className="text-sm text-zinc-500">沒有符合的追加任務。</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-300">
+                <th className="py-2 pr-3 font-medium">暱稱</th>
+                <th className="py-2 pr-3 font-medium">原始時數</th>
+                <th className="py-2 pr-3 font-medium">名稱</th>
+                <th className="py-2 pr-3 font-medium">儲存值</th>
+                <th className="py-2 pr-3 font-medium">狀態</th>
+                <th className="py-2 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.pageItems.map((task) => (
+                <AdHocTaskRow
+                  key={task.id}
+                  task={task}
+                  originalHours={staffOriginalHours[task.primaryNickname]}
+                  deleteAction={deleteAction}
+                  deletePending={deletePending}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function AdHocTaskAdminPanel({
@@ -123,31 +197,12 @@ export function AdHocTaskAdminPanel({
         {tasks.length === 0 ? (
           <p className="text-sm text-zinc-500">尚未新增。</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-300">
-                  <th className="py-2 pr-3 font-medium">暱稱</th>
-                  <th className="py-2 pr-3 font-medium">原始時數</th>
-                  <th className="py-2 pr-3 font-medium">名稱</th>
-                  <th className="py-2 pr-3 font-medium">儲存值</th>
-                  <th className="py-2 pr-3 font-medium">狀態</th>
-                  <th className="py-2 font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((task) => (
-                  <AdHocTaskRow
-                    key={task.id}
-                    task={task}
-                    originalHours={staffOriginalHours[task.primaryNickname]}
-                    deleteAction={deleteAction}
-                    deletePending={deletePending}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AdHocTaskListTable
+            tasks={tasks}
+            staffOriginalHours={staffOriginalHours}
+            deleteAction={deleteAction}
+            deletePending={deletePending}
+          />
         )}
         {deleteState.message ? (
           <p
@@ -283,35 +338,59 @@ function AdHocTaskRow({
 }
 
 export function AdHocTaskReadOnlyList({ tasks }: { tasks: StoredAdHocTask[] }) {
+  const list = useClientList({
+    items: tasks,
+    getSearchHaystack: adHocTaskHaystack,
+  });
+
   if (tasks.length === 0) {
     return <p className="text-sm text-zinc-500">本期沒有追加任務。</p>;
   }
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[28rem] border-collapse text-left text-sm">
-        <thead>
-          <tr className="border-b border-zinc-300">
-            <th className="py-2 pr-3 font-medium">暱稱</th>
-            <th className="py-2 pr-3 font-medium">名稱</th>
-            <th className="py-2 pr-3 font-medium">儲存值</th>
-            <th className="py-2 font-medium">狀態</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((task) => (
-            <tr key={task.id} className="border-b border-zinc-200">
-              <td className="py-2 pr-3">{task.primaryNickname}</td>
-              <td className="py-2 pr-3">{task.name}</td>
-              <td className="py-2 pr-3 tabular-nums">
-                {task.storedAmount.toLocaleString("zh-TW")}
-              </td>
-              <td className="py-2">
-                {task.confirmed ? "已確認派發" : "待確認"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      <ListToolbar
+        query={list.query}
+        onQueryChange={list.setQuery}
+        searchLabel="搜尋追加任務"
+        searchPlaceholder="暱稱、任務名稱、狀態"
+        pageSize={list.pageSize}
+        onPageSizeChange={list.setPageSize}
+        page={list.page}
+        onPageChange={list.setPage}
+        pages={list.pages}
+        filteredCount={list.filteredCount}
+        totalCount={list.totalCount}
+      />
+      {list.filteredCount === 0 ? (
+        <p className="text-sm text-zinc-500">沒有符合的追加任務。</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[28rem] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-300">
+                <th className="py-2 pr-3 font-medium">暱稱</th>
+                <th className="py-2 pr-3 font-medium">名稱</th>
+                <th className="py-2 pr-3 font-medium">儲存值</th>
+                <th className="py-2 font-medium">狀態</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.pageItems.map((task) => (
+                <tr key={task.id} className="border-b border-zinc-200">
+                  <td className="py-2 pr-3">{task.primaryNickname}</td>
+                  <td className="py-2 pr-3">{task.name}</td>
+                  <td className="py-2 pr-3 tabular-nums">
+                    {task.storedAmount.toLocaleString("zh-TW")}
+                  </td>
+                  <td className="py-2">
+                    {task.confirmed ? "已確認派發" : "待確認"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

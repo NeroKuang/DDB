@@ -1,7 +1,10 @@
+import { effectiveCommissionRate } from "@/lib/commission-rate";
 import { roundMoney } from "@/lib/money";
 import type { AdHocTask, StaffMaster, TemplateTask } from "@/compile/types";
 import type { CheckoutNoteLine } from "@/import/parse-checkout";
 import type { NoteAnalysisClick } from "@/import/parse-note-analysis";
+import type { PosItemCatalogEntry } from "@/pos-items/manage";
+import { isGiftItemName } from "@/pos-items/gift-item";
 import { computeTemplateTaskBonus } from "@/template-tasks/compute";
 
 /** Original from POS/import; stored is payroll-adopted (defaults to original until edited). */
@@ -26,7 +29,17 @@ export type GuestAnalysisRow = {
 export type NoteListRow = {
   itemName: string;
   clicks: number;
-  bonusPerClick: number;
+  /** POS 單價（外層累計加減價額 ÷ 全店點選數）. */
+  unitPrice: number;
+  /** iCHEF 兌換／贈送品：售價 0 為正常。 */
+  isGift?: boolean;
+  /** 非贈送品但售價未設定。 */
+  missingPrice?: boolean;
+  /** 該店員此品項總賣出（點選數 × 售價）. */
+  totalSold: number;
+  /** 常態抽成：總賣出 × 店員業績成數（與結帳業績獎金同一比例）. */
+  baseCommission: number;
+  /** 模板任務：單筆額外獎金（點選 × Admin 設定，與 POS 售價無關）. */
   perClickBonus: number;
   targetBonus: number;
   taskBonus: MoneyPair;
@@ -60,11 +73,16 @@ function nicknamesOf(staff: StaffMaster): string[] {
   return [staff.primaryNickname, ...staff.aliases];
 }
 
-function findStaff(
-  staffList: StaffMaster[],
-  nickname: string
-): StaffMaster | undefined {
-  return staffList.find((person) => nicknamesOf(person).includes(nickname));
+function lineBelongsToStaff(
+  lineNickname: string,
+  staff: StaffMaster,
+  periodNicknameAttributions: ReadonlyMap<string, string>
+): boolean {
+  const attributed = periodNicknameAttributions.get(lineNickname);
+  if (attributed) {
+    return attributed === staff.primaryNickname;
+  }
+  return nicknamesOf(staff).includes(lineNickname);
 }
 
 function pair(original: number, stored?: number): MoneyPair {
@@ -78,6 +96,9 @@ export function analyzeStaffPerformance(input: {
   staff: StaffMaster;
   checkoutLines: CheckoutNoteLine[];
   noteClicks: NoteAnalysisClick[];
+  itemUnitPrices?: ReadonlyMap<string, number>;
+  posItemCatalog?: ReadonlyMap<string, PosItemCatalogEntry>;
+  periodNicknameAttributions?: ReadonlyMap<string, string>;
   templateTasks?: TemplateTask[];
   adHocTasks?: AdHocTask[];
   storedOverrides?: StoredPerformanceOverrides;
@@ -86,16 +107,22 @@ export function analyzeStaffPerformance(input: {
     staff,
     checkoutLines,
     noteClicks,
+    itemUnitPrices = new Map(),
+    posItemCatalog = new Map(),
+    periodNicknameAttributions = new Map(),
     templateTasks = [],
     adHocTasks = [],
     storedOverrides,
   } = input;
-  const mine = new Set(nicknamesOf(staff));
+
   const lineItems: PerformanceLineItem[] = [];
   let personalSalesOriginal = 0;
 
   for (const line of checkoutLines) {
-    if (line.voided || !mine.has(line.nickname)) {
+    if (
+      line.voided ||
+      !lineBelongsToStaff(line.nickname, staff, periodNicknameAttributions)
+    ) {
       continue;
     }
     personalSalesOriginal = roundMoney(personalSalesOriginal + line.amount);
@@ -131,7 +158,9 @@ export function analyzeStaffPerformance(input: {
 
   const clicksByItem = new Map<string, number>();
   for (const click of noteClicks) {
-    if (!mine.has(click.nickname)) {
+    if (
+      !lineBelongsToStaff(click.nickname, staff, periodNicknameAttributions)
+    ) {
       continue;
     }
     clicksByItem.set(
@@ -142,6 +171,7 @@ export function analyzeStaffPerformance(input: {
   const taskByItem = new Map(
     templateTasks.map((task) => [task.itemName, task])
   );
+  const commissionRate = effectiveCommissionRate(staff.commissionRate);
   const noteList: NoteListRow[] = [...clicksByItem.entries()]
     .map(([itemName, clicks]) => {
       const task = taskByItem.get(itemName);
@@ -149,10 +179,21 @@ export function analyzeStaffPerformance(input: {
         amountPerClick: task?.amountPerClick ?? 0,
         tiers: task?.tiers ?? [],
       });
+      const catalogEntry = posItemCatalog.get(itemName);
+      const unitPrice =
+        catalogEntry?.unitPrice ?? itemUnitPrices.get(itemName) ?? 0;
+      const isGift = catalogEntry?.isGift ?? isGiftItemName(itemName);
+      const missingPrice = unitPrice === 0 && !isGift && clicks > 0;
+      const totalSold = roundMoney(clicks * unitPrice);
+      const baseCommission = roundMoney(totalSold * commissionRate);
       return {
         itemName,
         clicks,
-        bonusPerClick: task?.amountPerClick ?? 0,
+        unitPrice,
+        isGift,
+        missingPrice,
+        totalSold,
+        baseCommission,
         perClickBonus: breakdown.perClickBonus,
         targetBonus: breakdown.targetBonus,
         taskBonus: pair(breakdown.total),
@@ -179,7 +220,7 @@ export function analyzeStaffPerformance(input: {
   );
   const taskBonusOriginal = roundMoney(noteTaskBonus + adHocTotal);
   const commissionOriginal = roundMoney(
-    personalSalesOriginal * staff.commissionRate
+    personalSalesOriginal * effectiveCommissionRate(staff.commissionRate)
   );
 
   return {
@@ -199,6 +240,9 @@ export function analyzeAllStaffPerformance(input: {
   allStaff: StaffMaster[];
   checkoutLines: CheckoutNoteLine[];
   noteClicks: NoteAnalysisClick[];
+  itemUnitPrices?: ReadonlyMap<string, number>;
+  posItemCatalog?: ReadonlyMap<string, PosItemCatalogEntry>;
+  periodNicknameAttributions?: ReadonlyMap<string, string>;
   templateTasks?: TemplateTask[];
   adHocTasks?: AdHocTask[];
 }): StaffPerformanceView[] {
@@ -209,6 +253,9 @@ export function analyzeAllStaffPerformance(input: {
         staff,
         checkoutLines: input.checkoutLines,
         noteClicks: input.noteClicks,
+        itemUnitPrices: input.itemUnitPrices,
+        posItemCatalog: input.posItemCatalog,
+        periodNicknameAttributions: input.periodNicknameAttributions,
         templateTasks: input.templateTasks,
         adHocTasks: input.adHocTasks,
       })
@@ -227,7 +274,12 @@ export function analyzeAllStaffPerformance(input: {
 
 export function resolveStaffByNickname(
   staffList: StaffMaster[],
-  nickname: string
+  nickname: string,
+  periodNicknameAttributions: ReadonlyMap<string, string> = new Map()
 ): StaffMaster | undefined {
-  return findStaff(staffList, nickname);
+  const attributed = periodNicknameAttributions.get(nickname);
+  if (attributed) {
+    return staffList.find((person) => person.primaryNickname === attributed);
+  }
+  return staffList.find((person) => nicknamesOf(person).includes(nickname));
 }

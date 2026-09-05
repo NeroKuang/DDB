@@ -7,6 +7,7 @@ import {
   july2026FixturePaths,
 } from "@/lib/july-2026-fixtures";
 import {
+  findOverlappingStoredIchefPaths,
   listStoredIchefPaths,
   loadPerformanceFilesPreferringStorage,
   resolveNoteDrilldownPaths,
@@ -73,10 +74,10 @@ describe("loadPerformanceFilesPreferringStorage", () => {
     try {
       const missing = await loadPerformanceFilesPreferringStorage(
         JULY_2026_FILE_RANGE,
-        storageRoot
+        { storageRoot, periodKey: "2026-07" }
       );
-      expect(missing.source).toBe("fixture");
-      expect(missing.checkout).toBe(fixtures.checkout);
+      expect(missing?.source).toBe("fixture");
+      expect(missing?.checkout).toBe(fixtures.checkout);
 
       const dir = path.join(
         storageRoot,
@@ -97,12 +98,12 @@ describe("loadPerformanceFilesPreferringStorage", () => {
 
       const preferred = await loadPerformanceFilesPreferringStorage(
         JULY_2026_FILE_RANGE,
-        storageRoot
+        { storageRoot, periodKey: "2026-07" }
       );
-      expect(preferred.source).toBe("storage");
-      expect(preferred.checkout).toBe(storedCheckout);
-      expect(preferred.noteDrilldowns).toHaveLength(1);
-      expect(preferred.noteDrilldownsFromFixtureFallback).toBe(false);
+      expect(preferred?.source).toBe("storage");
+      expect(preferred?.checkout).toBe(storedCheckout);
+      expect(preferred?.noteDrilldowns).toHaveLength(1);
+      expect(preferred?.noteDrilldownsFromFixtureFallback).toBe(false);
     } finally {
       rmSync(storageRoot, { recursive: true, force: true });
     }
@@ -136,11 +137,49 @@ describe("loadPerformanceFilesPreferringStorage", () => {
 
       const files = await loadPerformanceFilesPreferringStorage(
         JULY_2026_FILE_RANGE,
-        storageRoot
+        { storageRoot, periodKey: "2026-07" }
       );
-      expect(files.source).toBe("storage");
-      expect(files.noteDrilldownsFromFixtureFallback).toBe(true);
-      expect(files.noteDrilldowns).toEqual(fixtures.noteDrilldowns);
+      expect(files?.source).toBe("storage");
+      expect(files?.noteDrilldownsFromFixtureFallback).toBe(true);
+      expect(files?.noteDrilldowns).toEqual(fixtures.noteDrilldowns);
+    } finally {
+      rmSync(storageRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("finds overlapping storage when exact range folder is missing", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "ddb-perf-overlap-"));
+    const fixtures = july2026FixturePaths();
+    const dir = path.join(
+      root,
+      "storage",
+      "ichef",
+      `${JULY_2026_FILE_RANGE.startDate}_${JULY_2026_FILE_RANGE.endDate}`
+    );
+    try {
+      mkdirSync(dir, { recursive: true });
+      cpSync(
+        fixtures.checkout,
+        path.join(dir, "結帳_作廢紀錄_2026-06-30~2026-08-01.xlsx")
+      );
+      const juneRange = { startDate: "2026-05-31", endDate: "2026-07-01" };
+      expect(listStoredIchefPaths(juneRange, root)).toBeNull();
+      expect(
+        findOverlappingStoredIchefPaths(juneRange, root)?.checkout
+      ).toContain("結帳_作廢紀錄");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not fall back to July fixtures for non-July periods", async () => {
+    const storageRoot = mkdtempSync(path.join(tmpdir(), "ddb-perf-no-fix-"));
+    try {
+      const june = await loadPerformanceFilesPreferringStorage(
+        { startDate: "2026-05-31", endDate: "2026-07-01" },
+        { storageRoot, periodKey: "2026-06" }
+      );
+      expect(june).toBeNull();
     } finally {
       rmSync(storageRoot, { recursive: true, force: true });
     }

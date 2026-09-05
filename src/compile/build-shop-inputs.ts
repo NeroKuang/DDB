@@ -3,7 +3,7 @@ import { listAdHocTasksForStoreCode } from "@/ad-hoc-tasks/manage";
 import { getPeriodCatalogEntry } from "@/compile/period-catalog";
 import { loadPeriodStaffInputs } from "@/pay-period-staff/manage";
 import { loadSavedStoredMap } from "@/pay-row-stored/manage";
-import { loadStaffMastersForStore } from "@/staff/seed-zhongshan";
+import { loadStaffMastersForPeriod } from "@/staff/seed-zhongshan";
 import { listTemplateTasksForStoreCode } from "@/template-tasks/manage";
 
 export type CompileShopBundle = {
@@ -21,7 +21,7 @@ export async function buildShopInputsForPeriod(input: {
 }): Promise<CompileShopBundle> {
   const storeCode = input.storeCode ?? "zhongshan";
   const fixture = getPeriodCatalogEntry(input.periodKey).fixtureShop();
-  const staff = await loadStaffMastersForStore(storeCode);
+  const staff = await loadStaffMastersForPeriod(input.periodKey, storeCode);
   const templateTasks = await listTemplateTasksForStoreCode(storeCode);
   const adHocTasks = await listAdHocTasksForStoreCode(input.periodKey);
   const periodStaff = await loadPeriodStaffInputs(

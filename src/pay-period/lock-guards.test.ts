@@ -24,6 +24,7 @@ async function lockJulyPeriod(storeId: string): Promise<void> {
         compile: {
           payRows: [],
           unmatchedNicknames: [],
+          blockingUnmatchedNicknames: [],
           unmatchedClicks: [],
           lockEligible: false,
           requiredImportsComplete: false,
@@ -41,6 +42,7 @@ async function lockJulyPeriod(storeId: string): Promise<void> {
         compile: {
           payRows: [],
           unmatchedNicknames: [],
+          blockingUnmatchedNicknames: [],
           unmatchedClicks: [],
           lockEligible: false,
           requiredImportsComplete: false,
@@ -84,12 +86,18 @@ describe("lock guards on payroll-affecting writes", () => {
             aliases: [],
             title: staff.title,
             kind: "regular",
+            guestPeriodKey: null,
             payKind: "hourly",
             hourlyRate: staff.hourlyRate,
             monthlyPay: staff.monthlyPay,
             commissionRate: staff.commissionRate,
             targetBonusAmount: staff.targetBonusAmount,
             laborHealthInsuranceAmount: staff.laborHealthInsuranceAmount,
+            laborHealthInsuranceMode:
+              staff.laborHealthInsuranceMode === "RATIO" ? "ratio" : "fixed",
+            laborHealthInsuranceRatio: staff.laborHealthInsuranceRatio,
+            laborHealthInsuranceCarryOverMonthly:
+              staff.laborHealthInsuranceCarryOverMonthly,
             payNote: staff.payNote,
           },
         })

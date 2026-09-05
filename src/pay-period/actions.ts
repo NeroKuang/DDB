@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
-import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { authOptions } from "@/lib/auth-options";
+import { logServerError, toUserFacingMessage } from "@/lib/user-facing-error";
+import { periodKeyFromFormData } from "@/lib/resolve-period-key";
 import { lockPayPeriod, unlockPayPeriod } from "@/pay-period/manage";
 
 export type PayPeriodActionState = {
@@ -20,18 +21,25 @@ export async function lockPayPeriodAction(
     return { ok: false, message: "只有 Admin 可以鎖定本期。" };
   }
   try {
+    const storeId = String(formData.get("storeId") ?? "").trim();
+    if (!storeId) {
+      return { ok: false, message: "門市缺失。" };
+    }
+    const periodKey = periodKeyFromFormData(formData);
     await lockPayPeriod({
       actorRole: "ADMIN",
-      storeId: String(formData.get("storeId") ?? "").trim(),
-      periodKey: JULY_2026_PERIOD_KEY,
+      storeId,
+      periodKey,
     });
     revalidatePath("/payroll");
     revalidatePath("/performance");
+    revalidatePath("/");
     return { ok: true, message: "已鎖定本期；業績面與薪資報表已凍結。" };
   } catch (error) {
+    logServerError("lockPayPeriodAction", error);
     return {
       ok: false,
-      message: error instanceof Error ? error.message : String(error),
+      message: toUserFacingMessage(error, "無法鎖定本期，請稍後再試。"),
     };
   }
 }
@@ -45,18 +53,25 @@ export async function unlockPayPeriodAction(
     return { ok: false, message: "只有 Admin 可以解鎖本期。" };
   }
   try {
+    const storeId = String(formData.get("storeId") ?? "").trim();
+    if (!storeId) {
+      return { ok: false, message: "門市缺失。" };
+    }
+    const periodKey = periodKeyFromFormData(formData);
     await unlockPayPeriod({
       actorRole: "ADMIN",
-      storeId: String(formData.get("storeId") ?? "").trim(),
-      periodKey: JULY_2026_PERIOD_KEY,
+      storeId,
+      periodKey,
     });
     revalidatePath("/payroll");
     revalidatePath("/performance");
+    revalidatePath("/");
     return { ok: true, message: "已解鎖本期。" };
   } catch (error) {
+    logServerError("unlockPayPeriodAction", error);
     return {
       ok: false,
-      message: error instanceof Error ? error.message : String(error),
+      message: toUserFacingMessage(error, "無法解鎖本期，請稍後再試。"),
     };
   }
 }

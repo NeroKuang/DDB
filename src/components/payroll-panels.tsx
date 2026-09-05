@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { PayRow, Venue } from "@/compile/types";
+import type { PayRow } from "@/compile/types";
+import { PERIOD_QUERY_PARAM } from "@/components/period-selector";
 import {
   EDITABLE_PAY_FIELDS,
   formatHours,
@@ -40,7 +41,13 @@ function HoursCell({ original, stored }: { original: number; stored: number }) {
 }
 
 /** Read-only 薪資表（匯出對齊用）。 */
-export function PayrollSummaryTable({ rows }: { rows: PayRow[] }) {
+export function PayrollSummaryTable({
+  rows,
+  periodKey,
+}: {
+  rows: PayRow[];
+  periodKey?: string;
+}) {
   if (rows.length === 0) {
     return <p className="text-sm opacity-70">本期沒有薪資列。</p>;
   }
@@ -75,7 +82,11 @@ export function PayrollSummaryTable({ rows }: { rows: PayRow[] }) {
                 <td>{row.legalName || "—"}</td>
                 <td>
                   <Link
-                    href={`/performance?nickname=${encodeURIComponent(row.primaryNickname)}`}
+                    href={
+                      periodKey
+                        ? `/performance?${PERIOD_QUERY_PARAM}=${encodeURIComponent(periodKey)}&nickname=${encodeURIComponent(row.primaryNickname)}`
+                        : `/performance?nickname=${encodeURIComponent(row.primaryNickname)}`
+                    }
                     className="text-link"
                   >
                     {row.primaryNickname}

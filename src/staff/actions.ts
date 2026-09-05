@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { parseCommissionRateField } from "@/lib/commission-rate";
 import {
   createStaff,
   openPersonalAccountForStaff,
@@ -10,8 +11,8 @@ import {
   resetPersonalAccountPassword,
   updatePersonalAccountUsername,
   updateStaff,
-  type StaffWriteInput,
 } from "@/staff/manage";
+import type { StaffWriteInput } from "@/staff/manage";
 
 export type StaffActionState = {
   ok: boolean;
@@ -35,12 +36,22 @@ function staffFromForm(formData: FormData): StaffWriteInput {
         : "hourly",
     hourlyRate: Number(formData.get("hourlyRate") ?? 0),
     monthlyPay: Number(formData.get("monthlyPay") ?? 0),
-    commissionRate: Number(formData.get("commissionRate") ?? 0.2),
+    commissionRate: parseCommissionRateField(formData.get("commissionRate")),
     targetBonusAmount: Number(formData.get("targetBonusAmount") ?? 0),
     laborHealthInsuranceAmount: Number(
       formData.get("laborHealthInsuranceAmount") ?? 0
     ),
+    laborHealthInsuranceMode:
+      String(formData.get("laborHealthInsuranceMode") ?? "fixed") === "ratio"
+        ? "ratio"
+        : "fixed",
+    laborHealthInsuranceRatio: Number(
+      formData.get("laborHealthInsuranceRatio") ?? 0
+    ),
+    laborHealthInsuranceCarryOverMonthly:
+      formData.get("laborHealthInsuranceCarryOverMonthly") === "on",
     payNote: String(formData.get("payNote") ?? ""),
+    guestPeriodKey: String(formData.get("guestPeriodKey") ?? "").trim() || null,
   };
 }
 

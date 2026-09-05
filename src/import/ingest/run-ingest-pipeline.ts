@@ -6,8 +6,14 @@ import { businessDaysForPeriodKey } from "@/compile/period-catalog";
 import { prisma } from "@/lib/prisma";
 import { sha256Hex, uploadBufferToMinio } from "@/import/minio-evidence";
 import { auditMinioKey, rawMinioKey } from "@/import/ingest/minio-keys";
+import {
+  itemNameFromDrilldownFilename,
+  mergeNoteOuterItems,
+  noteOuterNamesMissingDrilldowns,
+} from "@/import/parse-note-analysis";
 import { parseUploadSet } from "@/import/ingest/parse-upload-set";
 import { buildAuditWorkbookBytes } from "@/import/ingest/write-audit-xlsx";
+import { syncPosItemsFromImportRun } from "@/pos-items/manage";
 import type { UploadFileInput } from "@/import/upload-ichef-files";
 
 export type IngestPipelineInput = {
@@ -18,6 +24,8 @@ export type IngestPipelineInput = {
   source: ImportSource;
   files: UploadFileInput[];
   fileRange: { startDate: string; endDate: string };
+  /** When set (e.g. 網頁取數 DOM scrape), overrides xlsx outer parse. */
+  noteOuterItems?: import("@/import/parse-note-analysis").NoteOuterItem[];
 };
 
 export type IngestPipelineResult = {
@@ -93,7 +101,36 @@ export async function runIngestPipeline(
     start: new Date(businessDays.startIso),
     end: new Date(businessDays.endIso),
   };
-  const parsed = await parseUploadSet(input.files, period);
+  const parsed = await parseUploadSet(input.files, period, {
+    noteOuterItems: input.noteOuterItems,
+  });
+  const outerName = parsed.classified.noteOuter?.filename ?? "";
+  if (!outerName.startsWith("modifier-analysis")) {
+    throw new Error(
+      `注記外層必須是 modifier-analysis（收到 ${outerName || "（無）"}）；文字註記分析是店員彙總不能當外層`
+    );
+  }
+  if (!parsed.noteOuterComplete) {
+    const drillCount = new Set(
+      parsed.classified.drilldowns.map((file) =>
+        itemNameFromDrilldownFilename(file.filename)
+      )
+    ).size;
+    const missing = noteOuterNamesMissingDrilldowns(
+      parsed.noteOuterItems,
+      parsed.classified.drilldowns.map((file) =>
+        itemNameFromDrilldownFilename(file.filename)
+      )
+    );
+    const missingPreview =
+      missing.length > 0
+        ? `；缺少明細：${missing.slice(0, 8).join("、")}${missing.length > 8 ? "…" : ""}`
+        : "";
+    throw new Error(
+      `注記外層與品項明細未齊（外層 ${parsed.noteOuterItems.length} 品項，明細 ${drillCount} 品項${missingPreview}）；未取代本期匯入`
+    );
+  }
+  const noteOuterItems = parsed.noteOuterItems;
   const rawUploads = rawUploadsFromParsed(parsed);
 
   const importRun = await prisma.importRun.create({
@@ -125,6 +162,13 @@ export async function runIngestPipeline(
           itemName: click.itemName,
           nickname: click.nickname,
           clicks: click.clicks,
+        })),
+      },
+      noteOuterItems: {
+        create: mergeNoteOuterItems(noteOuterItems).map((item) => ({
+          name: item.name,
+          clicks: item.clicks,
+          priceTotal: item.priceTotal,
         })),
       },
       rawFiles: {
@@ -215,6 +259,8 @@ export async function runIngestPipeline(
         data: { activeImportRunId: importRun.id },
       }),
     ]);
+
+    await syncPosItemsFromImportRun(importRun.id);
 
     return {
       importRunId: importRun.id,

@@ -1,3 +1,12 @@
+import {
+  computeLockEligible,
+  blockingUnmatchedNicknames,
+} from "@/compile/unmatched-nicknames";
+import { effectiveCommissionRate } from "@/lib/commission-rate";
+import {
+  computeLaborHealthInsurance,
+  type LaborHealthInsurancePeriodOverride,
+} from "@/lib/labor-health-insurance";
 import { roundMoney } from "@/lib/money";
 import type {
   CompileResult,
@@ -48,6 +57,9 @@ export type CompilePayPeriodInput = {
     string,
     Partial<Record<Venue, Partial<PayRowOriginals>>>
   >;
+  adminSkippedUnmatchedNicknames?: string[];
+  /** POS 暱稱 → 歸屬店員主暱稱（本期認列）. */
+  periodNicknameAttributions?: ReadonlyMap<string, string>;
 };
 
 function nicknamesOf(staff: StaffMaster): string[] {
@@ -56,9 +68,28 @@ function nicknamesOf(staff: StaffMaster): string[] {
 
 function findStaff(
   shop: ShopInputs,
-  nickname: string
+  nickname: string,
+  periodNicknameAttributions: ReadonlyMap<string, string>
 ): StaffMaster | undefined {
+  const attributed = periodNicknameAttributions.get(nickname);
+  if (attributed) {
+    return shop.staff.find((person) => person.primaryNickname === attributed);
+  }
   return shop.staff.find((person) => nicknamesOf(person).includes(nickname));
+}
+
+function periodLaborOverride(
+  period: PeriodStaffInput,
+  carryOverMonthly: boolean
+): LaborHealthInsurancePeriodOverride | undefined {
+  if (carryOverMonthly) {
+    return undefined;
+  }
+  return {
+    mode: period.laborHealthInsuranceMode ?? "fixed",
+    amount: period.laborHealthInsuranceAmount ?? 0,
+    ratio: period.laborHealthInsuranceRatio ?? 0,
+  };
 }
 
 function periodInput(
@@ -145,6 +176,8 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
     noteClicks,
     noteOuterComplete,
     savedStored,
+    adminSkippedUnmatchedNicknames = [],
+    periodNicknameAttributions = new Map(),
   } = input;
   const unmatchedNicknames = new Map<string, number>();
   const sales = new Map<string, number>();
@@ -154,7 +187,7 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
     if (line.voided) {
       continue;
     }
-    const staff = findStaff(shop, line.nickname);
+    const staff = findStaff(shop, line.nickname, periodNicknameAttributions);
     if (!staff) {
       unmatchedNicknames.set(
         line.nickname,
@@ -169,7 +202,7 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
   }
 
   for (const pair of punchPairs) {
-    const staff = findStaff(shop, pair.nickname);
+    const staff = findStaff(shop, pair.nickname, periodNicknameAttributions);
     if (!staff) {
       continue;
     }
@@ -182,7 +215,7 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
   const unmatchedClicks: CompileResult["unmatchedClicks"] = [];
   const clicksByStaffItem = new Map<string, number>();
   for (const click of noteClicks) {
-    const staff = findStaff(shop, click.nickname);
+    const staff = findStaff(shop, click.nickname, periodNicknameAttributions);
     if (!staff) {
       unmatchedClicks.push({
         itemName: click.itemName,
@@ -241,11 +274,28 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
         staff.payKind === "monthly"
           ? landAmount(staff.monthlyPay, venue, period.landMonthlyOn)
           : roundMoney(staff.hourlyRate * rowHours);
+      const laborBase = computeLaborHealthInsurance(
+        {
+          mode: staff.laborHealthInsuranceMode,
+          amount: staff.laborHealthInsuranceAmount,
+          ratio: staff.laborHealthInsuranceRatio,
+          carryOverMonthly: staff.laborHealthInsuranceCarryOverMonthly,
+        },
+        staff.laborHealthInsuranceCarryOverMonthly
+          ? undefined
+          : periodLaborOverride(
+              period,
+              staff.laborHealthInsuranceCarryOverMonthly
+            ),
+        basePay
+      );
       const original: PayRowOriginals = {
         hours: rowHours,
         basePay,
         sales: rowSales,
-        commission: roundMoney(rowSales * staff.commissionRate),
+        commission: roundMoney(
+          rowSales * effectiveCommissionRate(staff.commissionRate)
+        ),
         targetBonus: period.payTargetBonus
           ? landAmount(staff.targetBonusAmount, venue, period.landTargetOn)
           : 0,
@@ -258,7 +308,7 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
         repayment: 0,
         photoCommission: 0,
         laborHealthInsurance: landAmount(
-          staff.laborHealthInsuranceAmount,
+          laborBase,
           venue,
           period.landInsuranceOn
         ),
@@ -299,12 +349,21 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
   const unmatchedList = [...unmatchedNicknames.entries()]
     .map(([nickname, amount]) => ({ nickname, amount }))
     .sort((a, b) => a.nickname.localeCompare(b.nickname, "zh-Hant"));
+  const blockingList = blockingUnmatchedNicknames(
+    unmatchedList,
+    adminSkippedUnmatchedNicknames
+  );
 
   return {
     payRows,
     unmatchedNicknames: unmatchedList,
+    blockingUnmatchedNicknames: blockingList,
     unmatchedClicks,
     requiredImportsComplete: noteOuterComplete,
-    lockEligible: unmatchedList.length === 0 && noteOuterComplete,
+    lockEligible: computeLockEligible({
+      unmatchedNicknames: unmatchedList,
+      adminSkippedNicknames: adminSkippedUnmatchedNicknames,
+      noteOuterComplete,
+    }),
   };
 }

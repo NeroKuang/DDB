@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import { ListToolbar } from "@/components/list-toolbar";
+import { useClientList } from "@/components/use-client-list";
 import {
   savePeriodStaffAction,
   type PeriodStaffActionState,
@@ -31,10 +33,12 @@ function VenueSelect({
 
 function PeriodStaffForm({
   storeId,
+  periodKey,
   record,
   locked,
 }: {
   storeId: string;
+  periodKey: string;
   record: PeriodStaffRecord;
   locked: boolean;
 }) {
@@ -57,6 +61,7 @@ function PeriodStaffForm({
       ) : (
         <form action={action} className="mt-3 space-y-3 text-sm">
           <input type="hidden" name="storeId" value={storeId} />
+          <input type="hidden" name="periodKey" value={periodKey} />
           <input type="hidden" name="staffId" value={record.staffId} />
           <label className="flex items-center gap-2">
             <input
@@ -101,6 +106,49 @@ function PeriodStaffForm({
               />
             </label>
           </div>
+          {!record.laborHealthInsuranceCarryOverMonthly ? (
+            <fieldset className="space-y-2 rounded border border-amber-200/60 p-2 dark:border-amber-900/40">
+              <legend className="px-1 text-xs text-zinc-500">
+                本期勞健保（主檔未勾每月沿用）
+              </legend>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <label className="flex flex-col gap-1">
+                  計算方式
+                  <select
+                    name="laborHealthInsuranceMode"
+                    defaultValue={d.laborHealthInsuranceMode}
+                    className="rounded border px-2 py-1 dark:border-zinc-600 dark:bg-zinc-900"
+                  >
+                    <option value="fixed">固定金額</option>
+                    <option value="ratio">底薪比例</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  固定額
+                  <input
+                    name="laborHealthInsuranceAmount"
+                    type="number"
+                    step="any"
+                    min={0}
+                    defaultValue={d.laborHealthInsuranceAmount}
+                    className="rounded border px-2 py-1 dark:border-zinc-600 dark:bg-zinc-900"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  比例（0～1）
+                  <input
+                    name="laborHealthInsuranceRatio"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    max={1}
+                    defaultValue={d.laborHealthInsuranceRatio}
+                    className="rounded border px-2 py-1 dark:border-zinc-600 dark:bg-zinc-900"
+                  />
+                </label>
+              </div>
+            </fieldset>
+          ) : null}
           <fieldset className="space-y-2 rounded border border-zinc-100 p-2 dark:border-zinc-800">
             <legend className="px-1 text-xs text-zinc-500">
               場別／時數拆分
@@ -267,13 +315,19 @@ function PeriodStaffForm({
   );
 }
 
+function periodStaffHaystack(record: PeriodStaffRecord): string {
+  return [record.primaryNickname, record.legalName].join(" ");
+}
+
 export function PeriodStaffPanel({
   storeId,
+  periodKey,
   records,
   locked,
   isAdmin,
 }: {
   storeId: string;
+  periodKey: string;
   records: PeriodStaffRecord[];
   locked: boolean;
   isAdmin: boolean;
@@ -281,22 +335,73 @@ export function PeriodStaffPanel({
   if (!isAdmin) {
     return null;
   }
+
   return (
-    <section className="space-y-2">
+    <PeriodStaffPanelInner
+      storeId={storeId}
+      periodKey={periodKey}
+      records={records}
+      locked={locked}
+    />
+  );
+}
+
+function PeriodStaffPanelInner({
+  storeId,
+  periodKey,
+  records,
+  locked,
+}: {
+  storeId: string;
+  periodKey: string;
+  records: PeriodStaffRecord[];
+  locked: boolean;
+}) {
+  const list = useClientList({
+    items: records,
+    getSearchHaystack: periodStaffHaystack,
+  });
+
+  return (
+    <section className="space-y-3">
       <h2 className="text-base font-medium">本期店員設定</h2>
       <p className="text-xs text-zinc-500">
         場別／時數拆分、達標勾發、記點／加班／加給手填。儲存後請到薪資報表確認。
       </p>
-      <div className="space-y-2">
-        {records.map((record) => (
-          <PeriodStaffForm
-            key={record.staffId}
-            storeId={storeId}
-            record={record}
-            locked={locked}
+      {records.length === 0 ? (
+        <p className="text-sm text-zinc-500">本期沒有店員。</p>
+      ) : (
+        <>
+          <ListToolbar
+            query={list.query}
+            onQueryChange={list.setQuery}
+            searchLabel="搜尋店員"
+            searchPlaceholder="暱稱、本名、職稱"
+            pageSize={list.pageSize}
+            onPageSizeChange={list.setPageSize}
+            page={list.page}
+            onPageChange={list.setPage}
+            pages={list.pages}
+            filteredCount={list.filteredCount}
+            totalCount={list.totalCount}
           />
-        ))}
-      </div>
+          {list.filteredCount === 0 ? (
+            <p className="text-sm text-zinc-500">沒有符合的店員。</p>
+          ) : (
+            <div className="space-y-2">
+              {list.pageItems.map((record) => (
+                <PeriodStaffForm
+                  key={record.staffId}
+                  storeId={storeId}
+                  periodKey={periodKey}
+                  record={record}
+                  locked={locked}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }

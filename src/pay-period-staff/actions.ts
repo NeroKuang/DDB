@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
-import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
+import { periodKeyFromFormData } from "@/lib/resolve-period-key";
 import { authOptions } from "@/lib/auth-options";
 import type { Venue } from "@/compile/types";
 import { upsertPeriodStaffSetting } from "@/pay-period-staff/manage";
@@ -77,8 +77,18 @@ function parseSettingsFromForm(formData: FormData): PeriodStaffSettingsJson {
   if (hasFrontManual) {
     settings.perRow.frontOfHouse = frontManuals;
   }
-  if (addBackOfHouseRow && hasBackManual) {
+  if (hasBackManual) {
     settings.perRow.backOfHouse = backManuals;
+  }
+  const laborModeRaw = String(formData.get("laborHealthInsuranceMode") ?? "");
+  if (laborModeRaw === "fixed" || laborModeRaw === "ratio") {
+    settings.laborHealthInsuranceMode = laborModeRaw;
+    settings.laborHealthInsuranceAmount = Number(
+      formData.get("laborHealthInsuranceAmount") ?? 0
+    );
+    settings.laborHealthInsuranceRatio = Number(
+      formData.get("laborHealthInsuranceRatio") ?? 0
+    );
   }
   return settings;
 }
@@ -94,10 +104,11 @@ export async function savePeriodStaffAction(
   try {
     const storeId = String(formData.get("storeId") ?? "").trim();
     const staffId = String(formData.get("staffId") ?? "").trim();
+    const periodKey = periodKeyFromFormData(formData);
     await upsertPeriodStaffSetting({
       actorRole: "ADMIN",
       storeId,
-      periodKey: JULY_2026_PERIOD_KEY,
+      periodKey,
       staffId,
       settings: parseSettingsFromForm(formData),
     });

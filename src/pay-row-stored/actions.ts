@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
-import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import type { Venue } from "@/compile/types";
 import { authOptions } from "@/lib/auth-options";
+import { periodKeyFromFormData } from "@/lib/resolve-period-key";
 import { upsertPayRowStored } from "@/pay-row-stored/manage";
 
 export type PayRowStoredActionState = {
@@ -43,6 +43,7 @@ export async function savePayRowStoredAction(
     const storeId = String(formData.get("storeId") ?? "").trim();
     const staffId = String(formData.get("staffId") ?? "").trim();
     const venue = String(formData.get("venue") ?? "frontOfHouse") as Venue;
+    const periodKey = periodKeyFromFormData(formData);
     const values: Partial<Record<(typeof FIELD_NAMES)[number], number>> = {};
     const clearFields: (typeof FIELD_NAMES)[number][] = [];
     for (const name of FIELD_NAMES) {
@@ -59,7 +60,7 @@ export async function savePayRowStoredAction(
     await upsertPayRowStored({
       actorRole: "ADMIN",
       storeId,
-      periodKey: JULY_2026_PERIOD_KEY,
+      periodKey,
       staffId,
       venue,
       values,

@@ -35,6 +35,7 @@ export const APP_NAV: NavSection[] = [
     title: "任務",
     hideForPersonal: true,
     items: [
+      { href: "/pos-items", label: "品項管理" },
       { href: "/template-tasks", label: "模板任務" },
       { href: "/ad-hoc-tasks", label: "追加任務" },
     ],

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { compilePayPeriodLive } from "@/compile/compile-for-period";
 import { fileRangeForPeriodKey } from "@/compile/period-catalog";
-import { julyFixturesAsUploadInputs } from "@/import/ingest/july-fixture-bytes";
+import { julyFixturesAsFetchedComplete } from "@/import/ingest/july-fixture-bytes";
 import { runIngestPipeline } from "@/import/ingest/run-ingest-pipeline";
 import { prisma } from "@/lib/prisma";
 import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
@@ -39,14 +39,21 @@ describe("ingest pipeline", () => {
   });
 
   it("parses July fixtures into ImportRun and compiles from DB", async () => {
+    const fetched = await julyFixturesAsFetchedComplete();
     const ingested = await runIngestPipeline({
       payPeriodId,
       storeId,
       storeCode: "zhongshan",
       periodKey: JULY_2026_PERIOD_KEY,
       source: "ADMIN_UPLOAD",
-      files: julyFixturesAsUploadInputs(),
+      files: [
+        fetched.checkout,
+        fetched.punches,
+        fetched.noteOuter,
+        ...fetched.noteDrilldowns.map((item) => item.file),
+      ],
       fileRange: fileRangeForPeriodKey(JULY_2026_PERIOD_KEY),
+      noteOuterItems: fetched.noteOuterItems,
     });
 
     expect(ingested.checkoutLineCount).toBeGreaterThan(0);
@@ -61,10 +68,16 @@ describe("ingest pipeline", () => {
 
     const run = await prisma.importRun.findUniqueOrThrow({
       where: { id: ingested.importRunId },
-      include: { compileRuns: true },
+      include: { compileRuns: true, noteOuterItems: true },
     });
     expect(run.status).toBe("SUCCEEDED");
     expect(run.compileRuns).toHaveLength(1);
+    expect(run.noteOuterItems.length).toBeGreaterThan(0);
+    expect(
+      run.noteOuterItems.some(
+        (item) => item.name === "修女貪杯" && item.priceTotal > 0
+      )
+    ).toBe(true);
 
     const compiled = await compilePayPeriodLive({
       storeId,

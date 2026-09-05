@@ -1,0 +1,51 @@
+# 本機開發：Postgres + MinIO（Next.js 用 npm run dev，固定 5003）
+# 勿與 BeyRotate compose 同時佔用 5432／9000／9001；啟動前先停掉衝突容器。
+# 正式環境用 Zeabur Dockerfile，不要在此 compose 跑 app。
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ddb
+      POSTGRES_PASSWORD: ddb_dev
+      POSTGRES_DB: ddb
+    ports:
+      - "5432:5432"
+    volumes:
+      - ddb_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ddb -d ddb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ddb
+      MINIO_ROOT_PASSWORD: ddb_dev_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ddb_minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      sleep 4;
+      mc alias set local http://minio:9000 ddb ddb_dev_minio;
+      mc mb local/ddb --ignore-existing;
+      echo MinIO bucket ddb ready;
+      "
+
+volumes:
+  ddb_pgdata:
+  ddb_minio_data:

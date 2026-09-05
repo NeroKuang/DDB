@@ -76,4 +76,48 @@ describe("compilePayPeriod rules", () => {
     expect(result.unmatchedClicks.length).toBe(1);
     expect(result.lockEligible).toBe(true);
   });
+
+  it("attributes POS nickname to staff for the whole period", () => {
+    const shop = zhongshanJuly2026Shop();
+    const attributions = new Map([["幽靈暱稱", "粉冥"]]);
+    const result = compilePayPeriod({
+      shop,
+      checkoutLines: [line("幽靈暱稱", 888)],
+      punchPairs: [],
+      noteClicks: [],
+      noteOuterComplete: true,
+      periodNicknameAttributions: attributions,
+    });
+    const fenMing = result.payRows.find(
+      (row) => row.primaryNickname === "粉冥"
+    );
+    expect(fenMing?.original.sales).toBe(888);
+    expect(result.unmatchedNicknames).toEqual([]);
+    expect(result.lockEligible).toBe(true);
+  });
+
+  it("computes ratio-based 勞健保 from basePay when carryOverMonthly", () => {
+    const shop = zhongshanJuly2026Shop();
+    shop.staff = shop.staff.map((person) =>
+      person.primaryNickname === "空想"
+        ? {
+            ...person,
+            laborHealthInsuranceMode: "ratio",
+            laborHealthInsuranceRatio: 0.06689473684210526,
+            laborHealthInsuranceAmount: 0,
+            laborHealthInsuranceCarryOverMonthly: true,
+          }
+        : person
+    );
+    const result = compilePayPeriod({
+      shop,
+      checkoutLines: [line("空想", 1000)],
+      punchPairs: [],
+      noteClicks: [],
+      noteOuterComplete: true,
+    });
+    const row = result.payRows.find((item) => item.primaryNickname === "空想");
+    expect(row?.original.basePay).toBe(38000);
+    expect(row?.original.laborHealthInsurance).toBe(2542);
+  });
 });

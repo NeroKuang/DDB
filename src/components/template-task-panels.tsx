@@ -1,12 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ListToolbar } from "@/components/list-toolbar";
+import { useClientList } from "@/components/use-client-list";
 import {
   deleteTemplateTaskAction,
   saveTemplateTaskAction,
   type TemplateTaskActionState,
 } from "@/template-tasks/actions";
-import { type StoredTemplateTask } from "@/template-tasks/manage";
+import type { StoredTemplateTask } from "@/template-tasks/manage";
 
 const initial: TemplateTaskActionState = { ok: false, message: "" };
 
@@ -22,6 +24,91 @@ function tiersSummary(task: StoredTemplateTask): string {
         `點滿 ${tier.minClicks} 次加發 ${tier.bonusAmount.toLocaleString("zh-TW")}`
     )
     .join("；");
+}
+
+function templateTaskHaystack(task: StoredTemplateTask): string {
+  return [task.itemName, tiersSummary(task)].join(" ");
+}
+
+function TemplateTaskListTable({
+  storeId,
+  tasks,
+  deleteAction,
+  deletePending,
+}: {
+  storeId: string;
+  tasks: StoredTemplateTask[];
+  deleteAction: (payload: FormData) => void;
+  deletePending: boolean;
+}) {
+  const list = useClientList({
+    items: tasks,
+    getSearchHaystack: templateTaskHaystack,
+  });
+
+  return (
+    <div className="space-y-3">
+      <ListToolbar
+        query={list.query}
+        onQueryChange={list.setQuery}
+        searchLabel="搜尋品項"
+        searchPlaceholder="品項名、任務達標摘要"
+        pageSize={list.pageSize}
+        onPageSizeChange={list.setPageSize}
+        page={list.page}
+        onPageChange={list.setPage}
+        pages={list.pages}
+        filteredCount={list.filteredCount}
+        totalCount={list.totalCount}
+      />
+      {list.filteredCount === 0 ? (
+        <p className="text-sm text-zinc-500">沒有符合的模板任務。</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-300">
+                <th className="py-2 pr-3 font-medium">品項名</th>
+                <th className="py-2 pr-3 font-medium">單筆</th>
+                <th className="py-2 pr-3 font-medium">任務達標（累加）</th>
+                <th className="py-2 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.pageItems.map((task) => (
+                <tr key={task.id} className="border-b border-zinc-200">
+                  <td className="py-2 pr-3">{task.itemName}</td>
+                  <td className="py-2 pr-3 tabular-nums">
+                    {task.amountPerClick.toLocaleString("zh-TW")}
+                  </td>
+                  <td className="py-2 pr-3 text-xs sm:text-sm">
+                    {tiersSummary(task)}
+                  </td>
+                  <td className="py-2">
+                    <form action={deleteAction}>
+                      <input type="hidden" name="storeId" value={storeId} />
+                      <input
+                        type="hidden"
+                        name="itemName"
+                        value={task.itemName}
+                      />
+                      <button
+                        type="submit"
+                        disabled={deletePending}
+                        className="text-sm underline underline-offset-2 disabled:opacity-60"
+                      >
+                        刪除
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function TemplateTaskAdminPanel({
@@ -52,8 +139,9 @@ export function TemplateTaskAdminPanel({
         <h2 className="text-lg font-semibold">新增／更新</h2>
         <div className="space-y-2 text-sm text-zinc-500">
           <p>
-            品項名須與 iCHEF
-            注記分析完全一致。單筆任務獎金與任務達標可並行；至少設一種。
+            模板任務為<strong className="font-medium">額外</strong>
+            任務獎金，不取代店員身上的常態業績成數（結帳業績獎金）。 品項名須與
+            iCHEF 注記分析完全一致。單筆任務獎金與任務達標可並行；至少設一種。
           </p>
           <p>
             任務達標怎麼記：每一階是「點選數達到該門檻，就加發該階金額」，而且會累加，不是只領最高那一階。例如設「滿
@@ -81,7 +169,7 @@ export function TemplateTaskAdminPanel({
             ))}
           </datalist>
           <label className="flex flex-col gap-1 text-sm">
-            <span>單筆任務獎金（可 0）</span>
+            <span>額外單筆任務獎金（可 0，與 POS 售價無關）</span>
             <input
               name="amountPerClick"
               type="number"
@@ -202,48 +290,12 @@ export function TemplateTaskAdminPanel({
             尚未設定。未綁定的注記點選獎金為 0。
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-300">
-                  <th className="py-2 pr-3 font-medium">品項名</th>
-                  <th className="py-2 pr-3 font-medium">單筆</th>
-                  <th className="py-2 pr-3 font-medium">任務達標（累加）</th>
-                  <th className="py-2 font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((task) => (
-                  <tr key={task.id} className="border-b border-zinc-200">
-                    <td className="py-2 pr-3">{task.itemName}</td>
-                    <td className="py-2 pr-3 tabular-nums">
-                      {task.amountPerClick.toLocaleString("zh-TW")}
-                    </td>
-                    <td className="py-2 pr-3 text-xs sm:text-sm">
-                      {tiersSummary(task)}
-                    </td>
-                    <td className="py-2">
-                      <form action={deleteAction}>
-                        <input type="hidden" name="storeId" value={storeId} />
-                        <input
-                          type="hidden"
-                          name="itemName"
-                          value={task.itemName}
-                        />
-                        <button
-                          type="submit"
-                          disabled={deletePending}
-                          className="text-sm underline underline-offset-2 disabled:opacity-60"
-                        >
-                          刪除
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TemplateTaskListTable
+            storeId={storeId}
+            tasks={tasks}
+            deleteAction={deleteAction}
+            deletePending={deletePending}
+          />
         )}
         {deleteState.message ? (
           <p
@@ -267,34 +319,58 @@ export function TemplateTaskReadOnlyList({
 }: {
   tasks: StoredTemplateTask[];
 }) {
+  const list = useClientList({
+    items: tasks,
+    getSearchHaystack: templateTaskHaystack,
+  });
+
   if (tasks.length === 0) {
     return <p className="text-sm text-zinc-500">尚未設定模板任務。</p>;
   }
   return (
-    <div className="overflow-x-auto">
-      <p className="mb-2 text-xs text-zinc-500">
+    <div className="space-y-3">
+      <p className="text-xs text-zinc-500">
         任務達標為累加制：點選數達某一階門檻就加發該階金額，不是只領最高階。
       </p>
-      <table className="w-full min-w-[24rem] border-collapse text-left text-sm">
-        <thead>
-          <tr className="border-b border-zinc-300">
-            <th className="py-2 pr-3 font-medium">品項名</th>
-            <th className="py-2 pr-3 font-medium">單筆</th>
-            <th className="py-2 font-medium">任務達標（累加）</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((task) => (
-            <tr key={task.id} className="border-b border-zinc-200">
-              <td className="py-2 pr-3">{task.itemName}</td>
-              <td className="py-2 pr-3 tabular-nums">
-                {task.amountPerClick.toLocaleString("zh-TW")}
-              </td>
-              <td className="py-2">{tiersSummary(task)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ListToolbar
+        query={list.query}
+        onQueryChange={list.setQuery}
+        searchLabel="搜尋品項"
+        searchPlaceholder="品項名、任務達標摘要"
+        pageSize={list.pageSize}
+        onPageSizeChange={list.setPageSize}
+        page={list.page}
+        onPageChange={list.setPage}
+        pages={list.pages}
+        filteredCount={list.filteredCount}
+        totalCount={list.totalCount}
+      />
+      {list.filteredCount === 0 ? (
+        <p className="text-sm text-zinc-500">沒有符合的模板任務。</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[24rem] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-300">
+                <th className="py-2 pr-3 font-medium">品項名</th>
+                <th className="py-2 pr-3 font-medium">單筆</th>
+                <th className="py-2 font-medium">任務達標（累加）</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.pageItems.map((task) => (
+                <tr key={task.id} className="border-b border-zinc-200">
+                  <td className="py-2 pr-3">{task.itemName}</td>
+                  <td className="py-2 pr-3 tabular-nums">
+                    {task.amountPerClick.toLocaleString("zh-TW")}
+                  </td>
+                  <td className="py-2">{tiersSummary(task)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

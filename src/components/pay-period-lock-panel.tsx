@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ActionStatus } from "@/components/action-status";
 import {
   lockPayPeriodAction,
   type PayPeriodActionState,
@@ -11,13 +12,17 @@ const initial: PayPeriodActionState = { ok: false, message: "" };
 
 export function PayPeriodLockPanel({
   storeId,
+  periodKey,
   locked,
   lockEligible,
+  lockBlockReasons,
   isAdmin,
 }: {
   storeId: string;
+  periodKey: string;
   locked: boolean;
   lockEligible: boolean;
+  lockBlockReasons: string[];
   isAdmin: boolean;
 }) {
   const [lockState, lockAction, lockPending] = useActionState(
@@ -50,6 +55,7 @@ export function PayPeriodLockPanel({
           </p>
           <form action={unlockAction}>
             <input type="hidden" name="storeId" value={storeId} />
+            <input type="hidden" name="periodKey" value={periodKey} />
             <button
               type="submit"
               disabled={unlockPending}
@@ -62,35 +68,29 @@ export function PayPeriodLockPanel({
       ) : (
         <>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            未對上的暱稱須清空且必要匯入齊全才可鎖定。鎖定後店員看到的業績不再隨匯入變動。
+            未對上的暱稱須處理完且必要匯入齊全才可鎖定。鎖定後店員看到的業績不再隨匯入變動。
           </p>
+          {!lockEligible && lockBlockReasons.length > 0 ? (
+            <ul className="list-inside list-disc text-xs text-zinc-500">
+              {lockBlockReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          ) : null}
           <form action={lockAction}>
             <input type="hidden" name="storeId" value={storeId} />
+            <input type="hidden" name="periodKey" value={periodKey} />
             <button
               type="submit"
-              disabled={lockPending || !lockEligible}
+              disabled={lockPending}
               className="rounded bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
             >
               {lockPending ? "鎖定中…" : "鎖定本期"}
             </button>
           </form>
-          {!lockEligible ? (
-            <p className="text-xs text-zinc-500">
-              目前不可鎖定（未對上暱稱或必要匯入未齊）。
-            </p>
-          ) : null}
         </>
       )}
-      {statusMessage ? (
-        <p
-          role="status"
-          className={
-            statusOk ? "text-sm text-emerald-700" : "text-sm text-red-700"
-          }
-        >
-          {statusMessage}
-        </p>
-      ) : null}
+      <ActionStatus ok={statusOk} message={statusMessage} />
     </section>
   );
 }

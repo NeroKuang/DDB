@@ -1,6 +1,12 @@
 import type { ShopInputs } from "@/compile/types";
+import { zhongshanEmptyShop } from "@/compile/zhongshan-empty-shop";
 import { zhongshanJuly2026Shop } from "@/compile/zhongshan-july-2026-shop";
 import { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
+import {
+  assertValidPeriodKey,
+  businessDaysForCalendarMonth,
+  fileRangeForCalendarMonth,
+} from "@/lib/pay-period-calendar";
 import {
   JULY_2026_FILE_RANGE,
   JULY_2026_PERIOD,
@@ -16,7 +22,7 @@ export type BusinessDayBounds = {
   endIso: string;
 };
 
-/** Static catalog entry for one 薪資期間 (v1 adapter: July 2026 only). */
+/** Static catalog entry for one 薪資期間. */
 export type PeriodCatalogEntry = {
   periodKey: string;
   businessDays: BusinessDayBounds;
@@ -25,22 +31,26 @@ export type PeriodCatalogEntry = {
   fixtureShop: () => ShopInputs;
 };
 
-const PERIOD_CATALOG: Record<string, PeriodCatalogEntry> = {
-  [JULY_2026_PERIOD_KEY]: {
-    periodKey: JULY_2026_PERIOD_KEY,
-    businessDays: { ...JULY_2026_PERIOD },
-    fileRange: { ...JULY_2026_FILE_RANGE },
-    labelPrefix: "2026-07（中山",
-    fixtureShop: zhongshanJuly2026Shop,
-  },
+const JULY_2026_CATALOG: PeriodCatalogEntry = {
+  periodKey: JULY_2026_PERIOD_KEY,
+  businessDays: { ...JULY_2026_PERIOD },
+  fileRange: { ...JULY_2026_FILE_RANGE },
+  labelPrefix: "2026-07（中山",
+  fixtureShop: zhongshanJuly2026Shop,
 };
 
 export function getPeriodCatalogEntry(periodKey: string): PeriodCatalogEntry {
-  const entry = PERIOD_CATALOG[periodKey];
-  if (!entry) {
-    throw new Error(`不支援的薪資期間：${periodKey}`);
+  assertValidPeriodKey(periodKey);
+  if (periodKey === JULY_2026_PERIOD_KEY) {
+    return JULY_2026_CATALOG;
   }
-  return entry;
+  return {
+    periodKey,
+    businessDays: businessDaysForCalendarMonth(periodKey),
+    fileRange: fileRangeForCalendarMonth(periodKey),
+    labelPrefix: `${periodKey}（中山`,
+    fixtureShop: zhongshanEmptyShop,
+  };
 }
 
 export function fileRangeForPeriodKey(periodKey: string): FileDateRange {

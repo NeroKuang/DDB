@@ -3,13 +3,17 @@ import type { CompileResult } from "@/compile/types";
 import { compilePayPeriodLive } from "@/compile/compile-for-period";
 import { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
 import { prisma } from "@/lib/prisma";
-import { analyzeAllStaffPerformance } from "@/performance/analyze-staff-performance";
+import { buildStaffPerformanceViews } from "@/performance/build-performance-views";
 import type { StaffPerformanceView } from "@/performance/analyze-staff-performance";
-import { loadJuly2026PerformanceInput } from "@/performance/load-july-performance";
+import { loadPerformanceInput } from "@/performance/load-performance-input";
 import {
   serializePeriodSnapshot,
   type PeriodSnapshot,
 } from "@/pay-period/snapshot";
+import {
+  describeLockBlockReasons,
+  lockBlockMessage,
+} from "@/pay-period/lock-eligibility";
 import {
   getPayPeriodState,
   isPayPeriodLocked,
@@ -30,21 +34,16 @@ function requireAdmin(actorRole: AccountRole): void {
   }
 }
 
-export async function buildJuly2026PeriodSnapshot(
-  storeId: string
+export async function buildPeriodSnapshot(
+  storeId: string,
+  periodKey: string
 ): Promise<PeriodSnapshot> {
   const compiled = await compilePayPeriodLive({
     storeId,
-    periodKey: JULY_2026_PERIOD_KEY,
+    periodKey,
   });
-  const perfInput = await loadJuly2026PerformanceInput();
-  const performanceSummaries = analyzeAllStaffPerformance({
-    allStaff: perfInput.staff,
-    checkoutLines: perfInput.checkoutLines,
-    noteClicks: perfInput.noteClicks,
-    templateTasks: perfInput.templateTasks,
-    adHocTasks: perfInput.adHocTasks,
-  });
+  const perfInput = await loadPerformanceInput(periodKey, { storeId });
+  const performanceSummaries = buildStaffPerformanceViews(perfInput);
   return {
     version: 1,
     periodLabel: compiled.periodLabel,
@@ -55,23 +54,31 @@ export async function buildJuly2026PeriodSnapshot(
   };
 }
 
+/** @deprecated Use buildPeriodSnapshot(storeId, periodKey). */
+export async function buildJuly2026PeriodSnapshot(
+  storeId: string
+): Promise<PeriodSnapshot> {
+  return buildPeriodSnapshot(storeId, JULY_2026_PERIOD_KEY);
+}
+
 export async function lockPayPeriod(input: {
   actorRole: AccountRole;
   storeId: string;
   periodKey: string;
 }): Promise<PayPeriodState> {
   requireAdmin(input.actorRole);
-  if (input.periodKey !== JULY_2026_PERIOD_KEY) {
-    throw new Error("第一期僅支援鎖定 2026-07");
-  }
   const live = await compilePayPeriodLive({
     storeId: input.storeId,
     periodKey: input.periodKey,
   });
   if (!live.result.lockEligible) {
-    throw new Error("未對上的暱稱未清空或必要匯入未齊，無法鎖定本期");
+    const reasons = describeLockBlockReasons({
+      requiredImportsComplete: live.result.requiredImportsComplete,
+      blockingUnmatchedNicknames: live.result.blockingUnmatchedNicknames,
+    });
+    throw new Error(lockBlockMessage(reasons));
   }
-  const snapshot = await buildJuly2026PeriodSnapshot(input.storeId);
+  const snapshot = await buildPeriodSnapshot(input.storeId, input.periodKey);
   snapshot.lockedAtIso = new Date().toISOString();
   const row = await prisma.payPeriod.upsert({
     where: {

@@ -1,7 +1,9 @@
 import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { storageDirForFetchRange } from "@/fetch/save-fetched-to-storage";
+import { isNoteOuterFilename } from "@/import/upload-ichef-files";
 import { readFirstSheetRows } from "@/import/read-xlsx-sheet";
+import { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
 import { july2026FixturePaths } from "@/lib/july-2026-fixtures";
 
 export type StoredIchefPaths = {
@@ -9,6 +11,8 @@ export type StoredIchefPaths = {
   punches?: string;
   noteOuter?: string;
   noteDrilldowns: string[];
+  /** storage/ichef/<start>_<end> folder that supplied these files. */
+  storageRange: { startDate: string; endDate: string };
 };
 
 export type PerformanceFileSet = {
@@ -27,10 +31,26 @@ function isXlsx(name: string): boolean {
   return name.toLowerCase().endsWith(".xlsx");
 }
 
-/** Discover 網頁取數 files already saved under storage/ichef/<start>_<end>. */
-export function listStoredIchefPaths(
+function parseStorageRangeDir(
+  name: string
+): { startDate: string; endDate: string } | null {
+  const match = name.match(/^(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/);
+  if (!match) {
+    return null;
+  }
+  return { startDate: match[1], endDate: match[2] };
+}
+
+function rangesOverlap(
+  a: { startDate: string; endDate: string },
+  b: { startDate: string; endDate: string }
+): boolean {
+  return a.startDate <= b.endDate && b.startDate <= a.endDate;
+}
+
+function listStoredIchefPathsInDir(
   range: { startDate: string; endDate: string },
-  root = process.cwd()
+  root: string
 ): StoredIchefPaths | null {
   const dir = storageDirForFetchRange(range, root);
   if (!existsSync(dir)) {
@@ -42,9 +62,7 @@ export function listStoredIchefPaths(
     return null;
   }
   const punchesName = names.find((name) => name.startsWith("打卡紀錄"));
-  const noteOuterName = names.find((name) =>
-    name.startsWith("modifier-analysis")
-  );
+  const noteOuterName = names.find((name) => isNoteOuterFilename(name));
   const noteDrilldowns = names
     .filter((name) => !NON_DRILLDOWN.test(name))
     .map((name) => path.join(dir, name))
@@ -57,7 +75,49 @@ export function listStoredIchefPaths(
     punches: punchesName ? path.join(dir, punchesName) : undefined,
     noteOuter: noteOuterName ? path.join(dir, noteOuterName) : undefined,
     noteDrilldowns,
+    storageRange: range,
   };
+}
+
+/** Discover 網頁取數 files under storage/ichef/<start>_<end> (exact range). */
+export function listStoredIchefPaths(
+  range: { startDate: string; endDate: string },
+  root = process.cwd()
+): StoredIchefPaths | null {
+  return listStoredIchefPathsInDir(range, root);
+}
+
+/** Find a stored export whose file-range overlaps the requested iCHEF window. */
+export function findOverlappingStoredIchefPaths(
+  range: { startDate: string; endDate: string },
+  root = process.cwd()
+): StoredIchefPaths | null {
+  const ichefRoot = path.join(root, "storage", "ichef");
+  if (!existsSync(ichefRoot)) {
+    return null;
+  }
+  const candidates = readdirSync(ichefRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => parseStorageRangeDir(entry.name))
+    .filter((parsed): parsed is { startDate: string; endDate: string } =>
+      Boolean(parsed && rangesOverlap(parsed, range))
+    )
+    .sort((a, b) => {
+      const widthA = a.endDate.localeCompare(a.startDate);
+      const widthB = b.endDate.localeCompare(b.startDate);
+      if (a.endDate !== b.endDate) {
+        return b.endDate.localeCompare(a.endDate);
+      }
+      return widthA - widthB;
+    });
+
+  for (const candidate of candidates) {
+    const found = listStoredIchefPathsInDir(candidate, root);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
 }
 
 /** Keep drill-downs that have at least one data row; else use fallback paths. */
@@ -82,34 +142,46 @@ export async function resolveNoteDrilldownPaths(
 }
 
 /**
- * Prefer live 網頁取數 under storage/; fall back to checked-in July fixtures.
- * Empty note drill-downs (header-only xlsx from a bad fetch) fall back to fixture notes.
+ * Prefer live 網頁取數 under storage/ (exact or overlapping range).
+ * July checked-in fixtures are only used for 2026-07 regression, not other months.
  */
 export async function loadPerformanceFilesPreferringStorage(
   range: { startDate: string; endDate: string },
-  storageRoot = process.cwd(),
-  fixtureRoot = process.cwd()
-): Promise<PerformanceFileSet> {
+  options?: { periodKey?: string; storageRoot?: string; fixtureRoot?: string }
+): Promise<PerformanceFileSet | null> {
+  const storageRoot = options?.storageRoot ?? process.cwd();
+  const fixtureRoot = options?.fixtureRoot ?? process.cwd();
+  const periodKey = options?.periodKey;
   const fixtures = july2026FixturePaths(fixtureRoot);
-  const stored = listStoredIchefPaths(range, storageRoot);
+
+  const stored =
+    listStoredIchefPaths(range, storageRoot) ??
+    findOverlappingStoredIchefPaths(range, storageRoot);
+
   if (!stored) {
-    return {
-      source: "fixture",
-      checkout: fixtures.checkout,
-      punches: fixtures.punches,
-      noteOuter: fixtures.noteOuter,
-      noteDrilldowns: fixtures.noteDrilldowns,
-      noteDrilldownsFromFixtureFallback: false,
-    };
+    if (periodKey === JULY_2026_PERIOD_KEY || !periodKey) {
+      return {
+        source: "fixture",
+        checkout: fixtures.checkout,
+        punches: fixtures.punches,
+        noteOuter: fixtures.noteOuter,
+        noteDrilldowns: fixtures.noteDrilldowns,
+        noteDrilldownsFromFixtureFallback: false,
+      };
+    }
+    return null;
   }
+
+  const noteFallback =
+    periodKey === JULY_2026_PERIOD_KEY ? fixtures.noteDrilldowns : [];
   const notes = await resolveNoteDrilldownPaths(
     stored.noteDrilldowns,
-    fixtures.noteDrilldowns
+    noteFallback
   );
   return {
     source: "storage",
     checkout: stored.checkout,
-    punches: stored.punches ?? fixtures.punches,
+    punches: stored.punches,
     noteOuter: stored.noteOuter,
     noteDrilldowns: notes.paths,
     noteDrilldownsFromFixtureFallback: notes.usedFallback,

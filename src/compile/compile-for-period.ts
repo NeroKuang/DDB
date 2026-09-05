@@ -3,7 +3,9 @@ import { compilePayPeriod } from "@/compile/compile-pay-period";
 import { buildShopInputsForPeriod } from "@/compile/build-shop-inputs";
 import { loadPeriodImports } from "@/compile/load-period-imports";
 import { periodLabelForImportSource } from "@/compile/period-catalog";
+import { prisma } from "@/lib/prisma";
 import { getPayPeriodState, isPayPeriodLocked } from "@/pay-period/state";
+import { loadPeriodNicknameAttributions } from "@/pay-period/unmatched-resolutions";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export type PeriodCompileResult = {
@@ -24,6 +26,19 @@ export async function compilePayPeriodLive(input: {
     storeId: input.storeId,
   });
   const { shop, savedStored } = await buildShopInputsForPeriod(input);
+  const periodRow = await prisma.payPeriod.findUnique({
+    where: {
+      storeId_periodKey: {
+        storeId: input.storeId,
+        periodKey: input.periodKey,
+      },
+    },
+    select: { skippedUnmatchedNicknames: true },
+  });
+  const periodNicknameAttributions = await loadPeriodNicknameAttributions(
+    input.storeId,
+    input.periodKey
+  );
   const result = compilePayPeriod({
     shop,
     checkoutLines: imports.checkoutLines,
@@ -31,6 +46,8 @@ export async function compilePayPeriodLive(input: {
     noteClicks: imports.noteClicks,
     noteOuterComplete: imports.noteOuterComplete,
     savedStored,
+    adminSkippedUnmatchedNicknames: periodRow?.skippedUnmatchedNicknames ?? [],
+    periodNicknameAttributions,
   });
   return {
     periodLabel: periodLabelForImportSource(

@@ -29,5 +29,8 @@ export function periodStaffFormDefaults(record: PeriodStaffRecord) {
     backAllowanceNote: back?.allowanceNote ?? "",
     backRepayment: back?.repayment ?? 0,
     backPhotoCommission: back?.photoCommission ?? 0,
+    laborHealthInsuranceMode: s.laborHealthInsuranceMode ?? "fixed",
+    laborHealthInsuranceAmount: s.laborHealthInsuranceAmount ?? 0,
+    laborHealthInsuranceRatio: s.laborHealthInsuranceRatio ?? 0,
   };
 }

@@ -1,5 +1,8 @@
 import type { CheckoutNoteLine } from "@/import/parse-checkout";
-import type { NoteAnalysisClick } from "@/import/parse-note-analysis";
+import type {
+  NoteAnalysisClick,
+  NoteOuterItem,
+} from "@/import/parse-note-analysis";
 import type { PunchPair } from "@/import/parse-punches";
 import { getPeriodCatalogEntry } from "@/compile/period-catalog";
 import { parseCheckoutFile } from "@/import/parse-checkout";
@@ -18,6 +21,7 @@ export type PeriodImportBundle = {
   checkoutLines: CheckoutNoteLine[];
   punchPairs: PunchPair[];
   noteClicks: NoteAnalysisClick[];
+  noteOuterItems: NoteOuterItem[];
   noteOuterComplete: boolean;
 };
 
@@ -36,13 +40,19 @@ export async function loadPeriodImports(
   }
 
   const catalog = getPeriodCatalogEntry(periodKey);
-  const files = await loadPerformanceFilesPreferringStorage(catalog.fileRange);
+  const files = await loadPerformanceFilesPreferringStorage(catalog.fileRange, {
+    periodKey,
+  });
   const period = {
     start: new Date(catalog.businessDays.startIso),
     end: new Date(catalog.businessDays.endIso),
   };
-  if (!files.punches) {
-    throw new Error("打卡檔缺失，無法編成薪資報表");
+  if (!files?.punches) {
+    throw new Error(
+      periodKey === "2026-07"
+        ? "打卡檔缺失，無法編成薪資報表"
+        : `本期（${periodKey}）尚無 iCHEF 匯入，請先對該月執行網頁取數或上傳。`
+    );
   }
   const checkoutLines = await parseCheckoutFile(files.checkout, period);
   const punches = await parsePunchFile(files.punches, period);
@@ -55,9 +65,14 @@ export async function loadPeriodImports(
   ).flat();
 
   let noteOuterComplete = false;
+  let noteOuterItems: NoteOuterItem[] = [];
   if (files.noteOuter) {
     try {
-      const outer = await parseNoteOuterList(files.noteOuter);
+      const drilldownNames = files.noteDrilldowns.map((filePath) =>
+        itemNameFromDrilldownFilename(filePath)
+      );
+      const outer = await parseNoteOuterList(files.noteOuter, drilldownNames);
+      noteOuterItems = outer;
       const outerNames = new Set(outer.map((item) => item.name));
       const drillNames = new Set(
         files.noteDrilldowns.map((filePath) =>
@@ -79,6 +94,7 @@ export async function loadPeriodImports(
     checkoutLines,
     punchPairs: punches.pairs,
     noteClicks,
+    noteOuterItems,
     noteOuterComplete,
   };
 }

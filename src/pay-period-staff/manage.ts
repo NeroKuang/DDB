@@ -1,20 +1,22 @@
 import type { AccountRole } from "@prisma/client";
 import { zhongshanJuly2026Shop } from "@/compile/zhongshan-july-2026-shop";
 import type { PeriodStaffInput } from "@/compile/types";
-import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
-import { prisma } from "@/lib/prisma";
-import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
+import { assertPayPeriodUnlockedForWrite } from "@/pay-period/guards";
 import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";
 import {
   DEFAULT_PERIOD_STAFF_SETTINGS,
   type PeriodStaffSettingsJson,
 } from "@/pay-period-staff/types";
+import { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
+import { prisma } from "@/lib/prisma";
+import { staffWhereForPayPeriod } from "@/staff/guest-period";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export type PeriodStaffRecord = {
   staffId: string;
   primaryNickname: string;
   legalName: string;
+  laborHealthInsuranceCarryOverMonthly: boolean;
   settings: PeriodStaffSettingsJson;
 };
 
@@ -35,9 +37,57 @@ function parseSettingsJson(raw: unknown): PeriodStaffSettingsJson {
   };
 }
 
-async function ensureJulyPayPeriod(storeId: string): Promise<string> {
-  const row = await ensurePayPeriodRow(storeId, JULY_2026_PERIOD_KEY);
+async function ensurePayPeriodId(
+  storeId: string,
+  periodKey: string
+): Promise<string> {
+  const row = await ensurePayPeriodRow(storeId, periodKey);
   return row.id;
+}
+
+async function loadStaffSettingsForPeriod(
+  storeId: string,
+  periodKey: string
+): Promise<{
+  staff: Array<{
+    id: string;
+    primaryNickname: string;
+    legalName: string;
+    laborHealthInsuranceCarryOverMonthly: boolean;
+  }>;
+  settingsByStaffId: Map<string, PeriodStaffSettingsJson>;
+}> {
+  const staff = await prisma.staff.findMany({
+    where: staffWhereForPayPeriod(storeId, periodKey),
+    orderBy: { primaryNickname: "asc" },
+    select: {
+      id: true,
+      primaryNickname: true,
+      legalName: true,
+      laborHealthInsuranceCarryOverMonthly: true,
+    },
+  });
+  const settingsByStaffId = new Map<string, PeriodStaffSettingsJson>();
+  const payPeriod = await prisma.payPeriod.findUnique({
+    where: { storeId_periodKey: { storeId, periodKey } },
+    select: { id: true },
+  });
+  if (payPeriod) {
+    const rows = await prisma.payPeriodStaffSetting.findMany({
+      where: { payPeriodId: payPeriod.id },
+    });
+    for (const row of rows) {
+      settingsByStaffId.set(row.staffId, parseSettingsJson(row.settingsJson));
+    }
+  }
+  return { staff, settingsByStaffId };
+}
+
+function settingsForStaff(
+  staffId: string,
+  settingsByStaffId: Map<string, PeriodStaffSettingsJson>
+): PeriodStaffSettingsJson {
+  return settingsByStaffId.get(staffId) ?? { ...DEFAULT_PERIOD_STAFF_SETTINGS };
 }
 
 export async function seedJulyPeriodStaffFromFixture(
@@ -47,7 +97,7 @@ export async function seedJulyPeriodStaffFromFixture(
   if (!store) {
     return 0;
   }
-  const payPeriodId = await ensureJulyPayPeriod(store.id);
+  const payPeriodId = await ensurePayPeriodId(store.id, JULY_2026_PERIOD_KEY);
   const existing = await prisma.payPeriodStaffSetting.count({
     where: { payPeriodId },
   });
@@ -89,29 +139,17 @@ export async function listPeriodStaffForStore(
   storeId: string,
   periodKey: string
 ): Promise<PeriodStaffRecord[]> {
-  const payPeriod = await prisma.payPeriod.findUnique({
-    where: { storeId_periodKey: { storeId, periodKey } },
-  });
-  const staff = await prisma.staff.findMany({
-    where: { storeId },
-    orderBy: { primaryNickname: "asc" },
-  });
-  const settingsByStaffId = new Map<string, PeriodStaffSettingsJson>();
-  if (payPeriod) {
-    const rows = await prisma.payPeriodStaffSetting.findMany({
-      where: { payPeriodId: payPeriod.id },
-    });
-    for (const row of rows) {
-      settingsByStaffId.set(row.staffId, parseSettingsJson(row.settingsJson));
-    }
-  }
+  const { staff, settingsByStaffId } = await loadStaffSettingsForPeriod(
+    storeId,
+    periodKey
+  );
   return staff.map((person) => ({
     staffId: person.id,
     primaryNickname: person.primaryNickname,
     legalName: person.legalName,
-    settings: settingsByStaffId.get(person.id) ?? {
-      ...DEFAULT_PERIOD_STAFF_SETTINGS,
-    },
+    laborHealthInsuranceCarryOverMonthly:
+      person.laborHealthInsuranceCarryOverMonthly,
+    settings: settingsForStaff(person.id, settingsByStaffId),
   }));
 }
 
@@ -119,31 +157,13 @@ export async function loadPeriodStaffInputs(
   storeId: string,
   periodKey: string
 ): Promise<PeriodStaffInput[]> {
-  const payPeriod = await prisma.payPeriod.findUnique({
-    where: { storeId_periodKey: { storeId, periodKey } },
-  });
-  if (!payPeriod) {
-    return zhongshanJuly2026Shop().periodStaff;
-  }
-  const settingsRows = await prisma.payPeriodStaffSetting.findMany({
-    where: { payPeriodId: payPeriod.id },
-  });
-  if (settingsRows.length === 0) {
-    return zhongshanJuly2026Shop().periodStaff;
-  }
-  const staff = await prisma.staff.findMany({
-    where: { storeId },
-    orderBy: { primaryNickname: "asc" },
-  });
-  const byStaffId = new Map(
-    settingsRows.map((row) => [
-      row.staffId,
-      parseSettingsJson(row.settingsJson),
-    ])
+  const { staff, settingsByStaffId } = await loadStaffSettingsForPeriod(
+    storeId,
+    periodKey
   );
   return staff.map((person) => ({
     primaryNickname: person.primaryNickname,
-    ...(byStaffId.get(person.id) ?? { ...DEFAULT_PERIOD_STAFF_SETTINGS }),
+    ...settingsForStaff(person.id, settingsByStaffId),
   }));
 }
 
@@ -155,12 +175,12 @@ export async function upsertPeriodStaffSetting(input: {
   settings: PeriodStaffSettingsJson;
 }): Promise<PeriodStaffRecord> {
   requireAdmin(input.actorRole);
-  await assertJulyPayPeriodUnlocked(input.storeId);
+  await assertPayPeriodUnlockedForWrite(input.storeId, input.periodKey);
   const staff = await prisma.staff.findUnique({ where: { id: input.staffId } });
   if (!staff || staff.storeId !== input.storeId) {
     throw new Error("店員不存在");
   }
-  const payPeriodId = await ensureJulyPayPeriod(input.storeId);
+  const payPeriodId = await ensurePayPeriodId(input.storeId, input.periodKey);
   const row = await prisma.payPeriodStaffSetting.upsert({
     where: {
       payPeriodId_staffId: { payPeriodId, staffId: input.staffId },
@@ -176,6 +196,8 @@ export async function upsertPeriodStaffSetting(input: {
     staffId: staff.id,
     primaryNickname: staff.primaryNickname,
     legalName: staff.legalName,
+    laborHealthInsuranceCarryOverMonthly:
+      staff.laborHealthInsuranceCarryOverMonthly,
     settings: parseSettingsJson(row.settingsJson),
   };
 }

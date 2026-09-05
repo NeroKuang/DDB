@@ -5,7 +5,7 @@ import type { FetchedIchefFiles } from "@/fetch/ichef-web-fetch";
 import { parseCheckoutRows } from "@/import/parse-checkout";
 import {
   parseNoteDrilldownRows,
-  parseNoteOuterRows,
+  resolveNoteOuterItems,
 } from "@/import/parse-note-analysis";
 import { parsePunchRows } from "@/import/parse-punches";
 import { readFirstSheetFromBuffer } from "@/import/read-xlsx-sheet";
@@ -28,12 +28,14 @@ export async function compileInputFromFetchedFiles(
     ),
     period
   );
-  const outer = parseNoteOuterRows(
-    await readFirstSheetFromBuffer(
-      fetched.noteOuter.bytes,
-      fetched.noteOuter.filename
-    )
-  );
+  const drilldownNames = fetched.noteDrilldowns.map((item) => item.itemName);
+  const { items: outer, complete: noteOuterComplete } =
+    await resolveNoteOuterItems({
+      domScrape: fetched.noteOuterItems,
+      noteOuterBytes: fetched.noteOuter.bytes,
+      noteOuterLabel: fetched.noteOuter.filename,
+      drilldownItemNames: drilldownNames,
+    });
   const noteClicks = (
     await Promise.all(
       fetched.noteDrilldowns.map(async (item) =>
@@ -44,20 +46,12 @@ export async function compileInputFromFetchedFiles(
       )
     )
   ).flat();
-  const outerNames = new Set(outer.map((item) => item.name));
-  const drilldownNames = new Set(
-    fetched.noteDrilldowns.map((item) => item.itemName)
-  );
-  const everyOuterHasDrilldown =
-    outerNames.size > 0 &&
-    [...outerNames].every((name) => drilldownNames.has(name)) &&
-    drilldownNames.size === outerNames.size;
   return {
     shop: zhongshanJuly2026Shop(),
     checkoutLines,
     punchPairs: punches.pairs,
     noteClicks,
-    noteOuterComplete: everyOuterHasDrilldown,
+    noteOuterComplete,
   };
 }
 

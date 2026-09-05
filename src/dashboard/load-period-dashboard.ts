@@ -9,6 +9,8 @@ import {
   buildPeriodDashboardAlerts,
   type DashboardAlert,
 } from "@/dashboard/build-alerts";
+import { analyzePosItemHealth } from "@/pos-items/health";
+import { listPosItemsForStore } from "@/pos-items/manage";
 
 export type PeriodDashboardStatus = {
   storeId: string;
@@ -79,9 +81,12 @@ export async function loadPeriodDashboard(input: {
     requiredImportsComplete = compiled.result.requiredImportsComplete;
     lockEligible = compiled.result.lockEligible;
     payRowCount = compiled.result.payRows.length;
-    unmatchedNicknameCount = compiled.result.unmatchedNicknames.length;
+    unmatchedNicknameCount = compiled.result.blockingUnmatchedNicknames.length;
     unmatchedClickCount = compiled.result.unmatchedClicks.length;
-    topUnmatchedNicknames = compiled.result.unmatchedNicknames.slice(0, 5);
+    topUnmatchedNicknames = compiled.result.blockingUnmatchedNicknames.slice(
+      0,
+      5
+    );
   } catch (error) {
     compileError = error instanceof Error ? error.message : "編成失敗";
   }
@@ -91,6 +96,10 @@ export async function loadPeriodDashboard(input: {
     : null;
 
   const minioConfigured = isMinioConfigured();
+  const posItems = input.isAdmin
+    ? await listPosItemsForStore(input.storeId)
+    : [];
+  const posHealth = analyzePosItemHealth(posItems);
   const alerts = buildPeriodDashboardAlerts({
     locked,
     compileError,
@@ -103,6 +112,8 @@ export async function loadPeriodDashboard(input: {
     minioConfigured,
     isAdmin: input.isAdmin,
     hasImportRun,
+    posItemZeroPriceCount: posHealth.zeroPriceBillableCount,
+    posItemAllBillableZero: posHealth.allBillableZero,
   });
 
   return {
@@ -130,6 +141,7 @@ export async function loadPeriodDashboard(input: {
 export async function loadZhongshanPeriodDashboard(input: {
   canViewFetch: boolean;
   isAdmin: boolean;
+  periodKey?: string;
 }): Promise<PeriodDashboardStatus | null> {
   const store = await prisma.store.findUnique({
     where: { code: ZHONGSHAN_STORE_CODE },
@@ -140,6 +152,7 @@ export async function loadZhongshanPeriodDashboard(input: {
   }
   return loadPeriodDashboard({
     storeId: store.id,
+    periodKey: input.periodKey,
     canViewFetch: input.canViewFetch,
     isAdmin: input.isAdmin,
   });

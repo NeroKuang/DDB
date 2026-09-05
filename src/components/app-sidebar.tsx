@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { AccountRole } from "@prisma/client";
 import { navSectionsForRole } from "@/components/app-nav";
-import { SignOutButton } from "@/components/sign-out-button";
+import { PERIOD_QUERY_PARAM } from "@/components/period-selector";
+import { SignOutButton, SignOutLink } from "@/components/sign-out-button";
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") {
@@ -27,7 +28,17 @@ export function AppSidebar({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const period = searchParams.get(PERIOD_QUERY_PARAM);
   const sections = navSectionsForRole(role);
+
+  function navHref(href: string): string {
+    if (!period) {
+      return href;
+    }
+    const separator = href.includes("?") ? "&" : "?";
+    return `${href}${separator}${PERIOD_QUERY_PARAM}=${encodeURIComponent(period)}`;
+  }
 
   return (
     <aside
@@ -49,6 +60,7 @@ export function AppSidebar({
         <p className="mt-1 text-xs text-[var(--sidebar-muted)]">
           {username}（{role}）{primaryNickname ? `／${primaryNickname}` : ""}
         </p>
+        <SignOutLink className="mt-2" />
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {sections.map((section) => (
@@ -62,9 +74,9 @@ export function AppSidebar({
                 return (
                   <li key={item.href}>
                     <Link
-                      href={item.href}
+                      href={navHref(item.href)}
                       onClick={onNavigate}
-                      className={`block rounded px-2 py-1.5 text-sm ${
+                      className={`block rounded px-2 py-1.5 text-sm whitespace-nowrap [word-break:keep-all] ${
                         active
                           ? "bg-[var(--accent)] font-medium text-white"
                           : "text-[color-mix(in_srgb,var(--sidebar-fg)_88%,transparent)] hover:bg-[color-mix(in_srgb,var(--sidebar-fg)_10%,var(--sidebar))]"
@@ -98,7 +110,7 @@ export function MobileNavBar({ onOpenMenu }: { onOpenMenu: () => void }) {
         選單
       </button>
       <span className="font-display text-sm font-semibold">DDB</span>
-      <span className="w-12" />
+      <SignOutButton variant="toolbar" />
     </header>
   );
 }

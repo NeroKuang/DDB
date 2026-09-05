@@ -3,8 +3,9 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
-import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { authOptions } from "@/lib/auth-options";
+import { logServerError, toUserFacingMessage } from "@/lib/user-facing-error";
+import { periodKeyFromFormData } from "@/lib/resolve-period-key";
 import { runWebFetchJob, startWebFetchAndQueueJob } from "@/web-fetch/manage";
 
 export type WebFetchActionState = {
@@ -21,11 +22,11 @@ export async function startWebFetchAction(
     return { ok: false, message: "只有 Admin 可以發動網頁取數。" };
   }
   const storeId = String(formData.get("storeId") ?? "").trim();
-  const periodKey = JULY_2026_PERIOD_KEY;
   if (!storeId) {
     return { ok: false, message: "門市缺失。" };
   }
   try {
+    const periodKey = periodKeyFromFormData(formData);
     const { periodId } = await startWebFetchAndQueueJob({
       actorRole: "ADMIN",
       storeId,
@@ -42,9 +43,10 @@ export async function startWebFetchAction(
       message: "已開始網頁取數，請稍候重新整理查看進度。",
     };
   } catch (error) {
+    logServerError("startWebFetchAction", error);
     return {
       ok: false,
-      message: error instanceof Error ? error.message : String(error),
+      message: toUserFacingMessage(error, "無法啟動網頁取數，請稍後再試。"),
     };
   }
 }

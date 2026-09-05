@@ -1,6 +1,9 @@
 import { readFileSync } from "fs";
 import type { FetchedIchefFiles } from "@/fetch/ichef-web-fetch";
-import { itemNameFromDrilldownFilename } from "@/import/parse-note-analysis";
+import {
+  itemNameFromDrilldownFilename,
+  resolveNoteOuterItems,
+} from "@/import/parse-note-analysis";
 import type { UploadFileInput } from "@/import/upload-ichef-files";
 import { july2026FixturePaths } from "@/lib/july-2026-fixtures";
 
@@ -23,6 +26,28 @@ export function julyFixturesAsFetched(root = process.cwd()): FetchedIchefFiles {
       file: readXlsx(filePath),
     })),
   };
+}
+
+/** Same as julyFixturesAsFetched but outer list trimmed to fixture drill-downs (noteOuterComplete). */
+export async function julyFixturesAsFetchedComplete(
+  root = process.cwd()
+): Promise<FetchedIchefFiles> {
+  const fetched = julyFixturesAsFetched(root);
+  const drillNames = fetched.noteDrilldowns.map((item) => item.itemName);
+  const resolved = await resolveNoteOuterItems({
+    noteOuterBytes: fetched.noteOuter.bytes,
+    noteOuterLabel: fetched.noteOuter.filename,
+    drilldownItemNames: drillNames,
+  });
+  const priceByName = new Map(resolved.items.map((item) => [item.name, item]));
+  const outerByDrill = drillNames.map((name) => {
+    const found = priceByName.get(name);
+    if (found) {
+      return found;
+    }
+    return { name, clicks: 10, priceTotal: 1000 };
+  });
+  return { ...fetched, noteOuterItems: outerByDrill };
 }
 
 export function julyFixturesAsUploadInputs(

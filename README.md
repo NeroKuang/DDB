@@ -7,52 +7,29 @@
 
 ## 本機
 
-Dev server **5003**（不要用 3000）。Postgres **5432** 庫名 **`ddb`**；MinIO **9000**（主控台 **9001**）bucket **`ddb`**（可與 BeyRotate 共用同一 MinIO／Postgres 實例，不共 schema）。
+Dev server **5003**（不要用 3000）。基礎設施用 **本 repo 的 `docker compose`**（Postgres **5432** 庫 **`ddb`**；MinIO **9000**／主控台 **9001** bucket **`ddb`**）。**不要**再依賴 BeyRotate 本機 compose（`beyrotate_dev` 已下線／不共用）。
 
 ```bash
+# 若 5432／9000 已被其他容器佔用，先停掉（例如舊 BeyRotate compose）
+docker compose up -d          # 或 npm run docker:up
 cp .env.example .env
-# 依下方「環境變數」填齊 DATABASE_URL、Auth、MinIO、iCHEF、CRON_SECRET
+# 填 Auth、iCHEF、CRON_SECRET（DB／MinIO 本機預設已寫在 .env.example）
 npm install
 npm run db:push
 npm run dev
 ```
 
-### Postgres（與 BeyRotate 共用 Docker 時）
-
-在 BeyRotate 的 Postgres 容器裡建 **`ddb`** 庫（只需一次）：
-
-```bash
-docker exec -e PGPASSWORD=beyrotate_dev beyrotate-db-1 \
-  psql -U beyrotate -d postgres -c 'CREATE DATABASE ddb;'
-```
-
-`.env` 範例：
+本機預設連線（與 `docker-compose.yml` 一致）：
 
 ```env
-DATABASE_URL=postgresql://beyrotate:beyrotate_dev@localhost:5432/ddb
-```
-
-### MinIO（與 BeyRotate 共用 Docker 時）
-
-BeyRotate `docker-compose` 預設 MinIO 帳密見該 repo；DDB 需 **另外建 bucket `ddb`**（compose 只會建 `listing-images`、`avatars`）。
-
-1. 確認 MinIO 在跑：`curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9000/minio/health/live` → 應為 `200`
-2. 開主控台 [http://127.0.0.1:9001](http://127.0.0.1:9001)，登入後 **Create Bucket** → 名稱 **`ddb`**（私有即可，不必 public read）
-3. `.env` 填入（與 BeyRotate 本機 MinIO 對齊）：
-
-```env
+DATABASE_URL=postgresql://ddb:ddb_dev@localhost:5432/ddb
 MINIO_ENDPOINT=http://127.0.0.1:9000
-MINIO_ACCESS_KEY=beyrotate
-MINIO_SECRET_KEY=beyrotate_dev_minio
+MINIO_ACCESS_KEY=ddb
+MINIO_SECRET_KEY=ddb_dev_minio
 MINIO_BUCKET=ddb
 ```
 
-或用 `mc` 建 bucket：
-
-```bash
-docker run --rm --network host minio/mc:latest \
-  sh -c 'mc alias set local http://127.0.0.1:9000 beyrotate beyrotate_dev_minio && mc mb local/ddb --ignore-existing'
-```
+`minio-init` 會自動建 bucket **`ddb`**。主控台：[http://127.0.0.1:9001](http://127.0.0.1:9001)。
 
 **必填三項**：`MINIO_ENDPOINT`、`MINIO_ACCESS_KEY`、`MINIO_SECRET_KEY` 都有值才會上傳；缺任一項時匯入仍寫 DB，但 MinIO／保留策略／下載 tar.gz 會略過。
 
@@ -119,26 +96,12 @@ Admin 也可登入後到 [**raw 保留策略**](http://localhost:5003/storage-re
 
 ## Zeabur 部署
 
-可與 BeyRotate 放在**同一 Zeabur Project**（共用 PostgreSQL、MinIO），或獨立 Project。以下假設同一 Project 已有 Postgres + MinIO。
+**完整步驟與驗收**：[`docs/DEPLOY-ZEABUR.md`](docs/DEPLOY-ZEABUR.md)（ADR-0086）。  
+**給 Zeabur AI Agent 的可執行 Spec**：[`docs/ZEABUR-AGENT-SPEC.md`](docs/ZEABUR-AGENT-SPEC.md)。
 
-### 1. PostgreSQL
+摘要：掛在 **BeyRotate 正式／現役 Zeabur Project**（**不要**用已下線的 `beyrotate_dev`）；建置用根目錄 **Dockerfile**（含 Playwright）；MinIO bucket **`ddb` 必備**；首次 `RUN_DB_PUSH=1` 後改 `0`；網域用 `${ZEABUR_WEB_URL}`；月結／保留用**外部 cron**（月結逾時 ≥15 分）。本機基礎設施用本 repo `docker compose`，不共用 BeyRotate 本機帳密。
 
-- 若共用 BeyRotate 的 Postgres：在該庫建立 **`ddb`** database（與本機相同概念），`DATABASE_URL` 指向 `…/ddb`。
-- 或另加一個 Postgres 服務，庫名設為 `ddb`。
-
-### 2. MinIO
-
-1. 使用 Project 內既有的 **MinIO** 服務（或新增 Template → MinIO）。
-2. 在 MinIO **Console** 建立 bucket：**`ddb`**（**私有**即可；與 BeyRotate 的 `listing-images` 分開）。
-3. 記下 MinIO 服務 Variables／Networking：
-   - **App 連線**請用 **內網 endpoint**（例 `http://<minio-service>.zeabur.internal:9000`），不要用對外 Console 網域當 `MINIO_ENDPOINT`。
-   - **ROOT USER / PASSWORD** 對應 `MINIO_ACCESS_KEY`／`MINIO_SECRET_KEY`（Zeabur 注入名稱可能是 `MINIO_ROOT_USER`、`MINIO_ROOT_PASSWORD`，請以控制台顯示為準）。
-
-### 3. 部署 DDB 服務
-
-1. Add Service → **Git** → 選 **DDB** repo。
-2. 建置：Zeabur 偵測 **Next.js** 即可（或自訂 Dockerfile，與 BeyRotate 類似）。
-3. **Variables**（可用 Edit as Raw；`ZEABUR_WEB_URL` 為 Zeabur 自動注入）：
+### 變數範本（Edit as Raw）
 
 ```env
 DATABASE_URL=postgresql://<user>:<password>@<postgres-internal-host>:5432/ddb
@@ -153,6 +116,7 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<強密碼>
 
 CRON_SECRET=<隨機字串>
+RUN_DB_PUSH=1
 
 MINIO_ENDPOINT=http://<minio-internal-host>:9000
 MINIO_ACCESS_KEY=<MinIO ROOT USER>
@@ -164,36 +128,21 @@ LOGIN_ID=<iCHEF 登入帳號>
 LOGIN_PASSWORD=<iCHEF 登入密碼>
 ```
 
-4. **首次部署**後在容器或本機對**同一** `DATABASE_URL` 執行 schema：
+### 排程
 
-```bash
-npm run db:push
-```
+| 排程     | 路徑                              | 建議時間                    | 逾時      |
+| -------- | --------------------------------- | --------------------------- | --------- |
+| 月結取數 | `GET /api/cron/month-end-fetch`   | 每月 2 日 12:00 Asia/Taipei | ≥ 15 分鐘 |
+| raw 保留 | `GET /api/cron/storage-retention` | 每月 1 次                   | ≥ 5 分鐘  |
 
-5. 開啟 `${ZEABUR_WEB_URL}`，以 `ADMIN_USERNAME`／`ADMIN_PASSWORD` 登入。
+Header：`Authorization: Bearer <CRON_SECRET>`
 
-### 4. Zeabur 排程
-
-在 Zeabur **Scheduled Job** 或外部 cron 設定（皆需 `CRON_SECRET`）：
-
-| 排程     | 路徑                              | 建議時間                    |
-| -------- | --------------------------------- | --------------------------- |
-| 月結取數 | `GET /api/cron/month-end-fetch`   | 每月 2 日 12:00 Asia/Taipei |
-| raw 保留 | `GET /api/cron/storage-retention` | 每月 1 次                   |
-
-Header：
-
-```http
-Authorization: Bearer <CRON_SECRET>
-```
-
-### 5. 部署後檢查清單
+### 部署後檢查清單
 
 - [ ] 能登入 Admin
-- [ ] 薪資報表 → 上傳 xlsx 或網頁取數成功（無 MinIO 時仍寫 DB，但無 raw 存證）
-- [ ] MinIO bucket `ddb` 內可見 `raw/`、`audit/` 前綴（有設定 MinIO 時）
-- [ ] `/storage-retention` 未顯示「MinIO 未設定」
-- [ ] 外部 cron 打兩支 API 回 200（非 401）
+- [ ] 網頁取數成功（`fetchStatus=SUCCEEDED`）
+- [ ] MinIO `ddb` 可見 `raw/`／`audit/`
+- [ ] 外部 cron 回 200；`RUN_DB_PUSH=0`
 
 ## 測試接縫
 
@@ -205,5 +154,6 @@ Authorization: Bearer <CRON_SECRET>
 | --------------------- | ------------------------------------------------------------------------------------------ |
 | 「MinIO 未設定」      | 確認 `.env` 三項 `MINIO_ENDPOINT`／`ACCESS_KEY`／`SECRET_KEY` 非空，且 bucket `ddb` 已建立 |
 | 匯入成功但 MinIO 無檔 | 同上；或檢查 endpoint 是否用 **內網 URL**（Zeabur）                                        |
+| port 被佔用           | 停掉 BeyRotate 或其他佔 5432／9000 的容器後再 `docker compose up -d`                       |
 | cron 401              | `Authorization: Bearer` 與 `CRON_SECRET` 完全一致                                          |
 | 本機 port 衝突        | DDB 固定 **5003**；勿用 3000                                                               |

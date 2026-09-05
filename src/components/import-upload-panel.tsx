@@ -10,10 +10,12 @@ const initial: UploadImportActionState = { ok: false, message: "" };
 
 export function ImportUploadPanel({
   storeId,
+  periodKey,
   locked,
   isAdmin,
 }: {
   storeId: string;
+  periodKey: string;
   locked: boolean;
   isAdmin: boolean;
 }) {
@@ -31,13 +33,14 @@ export function ImportUploadPanel({
       <h2 className="text-base font-medium">上傳匯入（備援）</h2>
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
         上傳與網頁取數相同的一套
-        xlsx：結帳、打卡、modifier-analysis、各品項明細。全到齊才取代本期匯入。
+        xlsx：結帳、打卡、modifier-analysis（品項外層，不要上傳文字註記分析）、各品項明細。全到齊才取代本期匯入。
       </p>
       {locked ? (
         <p className="text-xs text-zinc-500">本期已鎖定，請先解鎖再上傳。</p>
       ) : (
         <form action={action} className="space-y-2">
           <input type="hidden" name="storeId" value={storeId} />
+          <input type="hidden" name="periodKey" value={periodKey} />
           <input
             type="file"
             name="files"

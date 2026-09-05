@@ -1,11 +1,14 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { compileZhongshanPayPeriod } from "@/compile/compile-for-period";
 import { payRowsToNamedCsv } from "@/export/pay-report-csv";
 import { authOptions } from "@/lib/auth-options";
 import { ensureAppBootstrap } from "@/lib/ensure-bootstrap";
-import { compileJuly2026Payroll } from "@/payroll/compile-july-payroll";
+import { resolvePeriodKey } from "@/lib/resolve-period-key";
+import { prisma } from "@/lib/prisma";
+import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
-export async function GET() {
+export async function GET(request: Request) {
   await ensureAppBootstrap();
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -18,14 +21,24 @@ export async function GET() {
     );
   }
 
+  const url = new URL(request.url);
+  const store = await prisma.store.findUnique({
+    where: { code: ZHONGSHAN_STORE_CODE },
+    select: { id: true },
+  });
+  const periodKey = await resolvePeriodKey({
+    searchParam: url.searchParams.get("period"),
+    storeId: store?.id,
+  });
+
   try {
-    const compiled = await compileJuly2026Payroll();
+    const compiled = await compileZhongshanPayPeriod(periodKey);
     const csv = payRowsToNamedCsv(compiled.result.payRows);
     return new NextResponse(csv, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="ddb-payroll-2026-07.csv"',
+        "Content-Disposition": `attachment; filename="ddb-payroll-${periodKey}.csv"`,
       },
     });
   } catch (error) {

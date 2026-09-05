@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import { ListToolbar } from "@/components/list-toolbar";
+import { useClientList } from "@/components/use-client-list";
 import type { PublicUser } from "@/auth/accounts";
 import {
   adminResetPasswordAction,
@@ -13,6 +15,10 @@ const initial: AccountActionState = { ok: false, message: "" };
 
 const inputClass =
   "rounded border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-600";
+
+function accountSearchHaystack(user: PublicUser): string {
+  return [user.username, user.role, user.primaryNickname ?? ""].join(" ");
+}
 
 function Status({ state }: { state: AccountActionState }) {
   if (!state.message) {
@@ -29,28 +35,56 @@ function Status({ state }: { state: AccountActionState }) {
 }
 
 export function AccountList({ users }: { users: PublicUser[] }) {
+  const list = useClientList({
+    items: users,
+    getSearchHaystack: accountSearchHaystack,
+  });
+
+  if (users.length === 0) {
+    return <p className="text-sm text-zinc-500">尚無帳號。</p>;
+  }
+
   return (
-    <table className="w-full text-left text-sm">
-      <thead>
-        <tr className="border-b border-zinc-200 dark:border-zinc-700">
-          <th className="py-2 pr-3">登入名</th>
-          <th className="py-2 pr-3">角色</th>
-          <th className="py-2">店員</th>
-        </tr>
-      </thead>
-      <tbody>
-        {users.map((user) => (
-          <tr
-            key={user.id}
-            className="border-b border-zinc-100 dark:border-zinc-800"
-          >
-            <td className="py-2 pr-3">{user.username}</td>
-            <td className="py-2 pr-3">{user.role}</td>
-            <td className="py-2">{user.primaryNickname ?? "—"}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="space-y-3">
+      <ListToolbar
+        query={list.query}
+        onQueryChange={list.setQuery}
+        searchLabel="搜尋帳號"
+        searchPlaceholder="登入名、角色、店員暱稱"
+        pageSize={list.pageSize}
+        onPageSizeChange={list.setPageSize}
+        page={list.page}
+        onPageChange={list.setPage}
+        pages={list.pages}
+        filteredCount={list.filteredCount}
+        totalCount={list.totalCount}
+      />
+      {list.filteredCount === 0 ? (
+        <p className="text-sm text-zinc-500">沒有符合的帳號。</p>
+      ) : (
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-zinc-200 dark:border-zinc-700">
+              <th className="py-2 pr-3">登入名</th>
+              <th className="py-2 pr-3">角色</th>
+              <th className="py-2">店員</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.pageItems.map((user) => (
+              <tr
+                key={user.id}
+                className="border-b border-zinc-100 dark:border-zinc-800"
+              >
+                <td className="py-2 pr-3">{user.username}</td>
+                <td className="py-2 pr-3">{user.role}</td>
+                <td className="py-2">{user.primaryNickname ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 

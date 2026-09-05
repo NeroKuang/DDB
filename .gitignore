@@ -43,3 +43,14 @@ next-env.d.ts
 # local 網頁取數／測試下載（真檔勿 commit；留 .gitkeep）
 /storage/*
 !/storage/.gitkeep
+
+# accidental local DB（正式用 Postgres）
+/prisma/*.db
+/prisma/*.db-journal
+
+# 臨時店家／取數檔（七月 fixture 已追蹤者除外；八月與診斷勿 commit）
+/8月報表*.xlsx
+/modifier-analysis_2026-07-31*
+.scratch/**/*.xlsx
+.scratch/**/*-report.json
+.scratch/**/*diag*

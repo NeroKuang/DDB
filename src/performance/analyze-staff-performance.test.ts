@@ -8,6 +8,7 @@ import {
   JULY_2026_PERIOD,
   july2026FixturePaths,
 } from "@/lib/july-2026-fixtures";
+import { roundMoney } from "@/lib/money";
 import {
   analyzeStaffPerformance,
   resolveStaffByNickname,
@@ -39,6 +40,7 @@ describe("analyzeStaffPerformance", () => {
       staff: fenMing,
       checkoutLines,
       noteClicks,
+      itemUnitPrices: new Map([["修女貪杯", 100]]),
       templateTasks: [{ itemName: "修女貪杯", amountPerClick: 50, tiers: [] }],
     });
     expect(view.personalSales).toEqual({ original: 75685, stored: 75685 });
@@ -47,10 +49,41 @@ describe("analyzeStaffPerformance", () => {
     expect(view.lineItems.every((item) => item.amount >= 0)).toBe(true);
     const rooting = view.noteList.find((row) => row.itemName === "修女貪杯");
     expect(rooting?.clicks).toBe(20);
+    expect(rooting?.unitPrice).toBe(100);
+    expect(rooting?.totalSold).toBe(2000);
+    expect(rooting?.baseCommission).toBe(400);
     expect(rooting?.taskBonus).toEqual({ original: 1000, stored: 1000 });
     expect(rooting?.perClickBonus).toBe(1000);
     expect(rooting?.targetBonus).toBe(0);
     expect(view.taskBonus.original).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("shows POS 售價／總賣出 from note outer fixtures", async () => {
+    const paths = july2026FixturePaths();
+    const noteClicks = (
+      await Promise.all(
+        paths.noteDrilldowns.map((filePath) =>
+          parseNoteDrilldown(filePath, itemNameFromDrilldownFilename(filePath))
+        )
+      )
+    ).flat();
+    const { parseNoteOuterList, buildNoteItemUnitPriceMap } =
+      await import("@/import/parse-note-analysis");
+    const prices = buildNoteItemUnitPriceMap(
+      await parseNoteOuterList(paths.noteOuter)
+    );
+    const view = analyzeStaffPerformance({
+      staff: fenMing,
+      checkoutLines: [],
+      noteClicks,
+      itemUnitPrices: prices,
+      templateTasks: [],
+    });
+    const rooting = view.noteList.find((row) => row.itemName === "修女貪杯");
+    expect(rooting?.unitPrice).toBeGreaterThan(0);
+    expect(rooting?.totalSold).toBe(
+      roundMoney(rooting!.clicks * rooting!.unitPrice)
+    );
   });
 
   it("adds cumulative 任務達標 on top of 單筆任務獎金", () => {
@@ -195,5 +228,32 @@ describe("analyzeStaffPerformance", () => {
       { name: "活動加碼", storedAmount: 1000, confirmed: true },
     ]);
     expect(view.taskBonus.original).toBe(1000);
+  });
+
+  it("attributes unmatched nicknames to staff for the period", () => {
+    const view = analyzeStaffPerformance({
+      staff: fenMing,
+      checkoutLines: [
+        {
+          nickname: "粉冥舊暱",
+          amount: 500,
+          orderer: "A",
+          at: new Date("2026-07-10T21:00:00+08:00"),
+          voided: false,
+        },
+      ],
+      noteClicks: [],
+      periodNicknameAttributions: new Map([["粉冥舊暱", "粉冥"]]),
+    });
+    expect(view.personalSales.original).toBe(500);
+  });
+
+  it("resolveStaffByNickname respects period attributions", () => {
+    const staff = resolveStaffByNickname(
+      shop.staff,
+      "粉冥舊暱",
+      new Map([["粉冥舊暱", "粉冥"]])
+    );
+    expect(staff?.primaryNickname).toBe("粉冥");
   });
 });

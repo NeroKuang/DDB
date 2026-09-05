@@ -1,12 +1,22 @@
 import { chromium } from "playwright";
 import type { Download, Page } from "playwright";
 import { readFileSync } from "fs";
+import path from "path";
 
 export type IchefCredentials = {
   storeId: string;
   loginId: string;
   password: string;
 };
+
+import type { NoteOuterItem } from "@/import/parse-note-analysis";
+import {
+  mergeNoteOuterItems,
+  noteOuterMatchesDrilldowns,
+  noteOuterNamesMissingDrilldowns,
+  normalizeNoteItemName,
+  parseNoteOuterProductSheetFromBuffer,
+} from "@/import/parse-note-analysis";
 
 export type DownloadedXlsx = {
   filename: string;
@@ -17,6 +27,8 @@ export type FetchedIchefFiles = {
   checkout: DownloadedXlsx;
   punches: DownloadedXlsx;
   noteOuter: DownloadedXlsx;
+  /** Parsed from downloaded modifier-analysis xlsx (authoritative item list). */
+  noteOuterItems?: NoteOuterItem[];
   noteDrilldowns: { itemName: string; file: DownloadedXlsx }[];
 };
 
@@ -136,6 +148,53 @@ async function setAngularDateRange(
   );
 }
 
+const NOTE_OUTER_DOWNLOAD_LABEL = "下載註記分析.XLS";
+
+/** iCHEF saves POS 加料注記 outer export with this filename prefix. */
+export function isModifierAnalysisOuterFilename(filename: string): boolean {
+  return /^modifier-analysis/i.test(path.basename(filename));
+}
+
+async function waitForNoteReportReady(
+  page: Page,
+  startDate: string
+): Promise<void> {
+  await page
+    .getByText(NOTE_OUTER_DOWNLOAD_LABEL)
+    .first()
+    .waitFor({ timeout: 30_000 });
+  await waitForNoteOuterTable(page);
+  await page.getByText(startDate).first().waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(2_000);
+}
+
+async function downloadModifierAnalysisOuter(
+  page: Page
+): Promise<DownloadedXlsx> {
+  const file = await clickDownload(page, NOTE_OUTER_DOWNLOAD_LABEL);
+  if (!isModifierAnalysisOuterFilename(file.filename)) {
+    throw new IchefFetchError(
+      `注記外層下載檔名應為 modifier-analysis（收到 ${file.filename}）；請確認已在注記分析頁且日期區間已套用`
+    );
+  }
+  if (!file.bytes.length) {
+    throw new IchefFetchError("modifier-analysis 外層 xlsx 為空");
+  }
+  return file;
+}
+
+async function parseOuterItemsFromDownload(
+  noteOuter: DownloadedXlsx
+): Promise<NoteOuterItem[]> {
+  return mergeNoteOuterItems(
+    await parseNoteOuterProductSheetFromBuffer(
+      noteOuter.bytes,
+      noteOuter.filename,
+      []
+    )
+  );
+}
+
 async function saveDownload(download: Download): Promise<DownloadedXlsx> {
   const filename = download.suggestedFilename();
   const path = await download.path();
@@ -201,17 +260,126 @@ type NoteTagRow = {
   attributeType: string;
 };
 
-async function readNoteTagRows(page: Page): Promise<NoteTagRow[]> {
+async function waitForNoteOuterTable(page: Page): Promise<void> {
   await page
     .locator("table.table-hover")
     .getByText("名稱", { exact: true })
-    .waitFor({
-      timeout: 30_000,
-    });
+    .waitFor({ timeout: 30_000 });
   await page.locator("table.table-hover tr.ng-scope").first().waitFor({
     timeout: 30_000,
   });
+}
+
+/** Scroll the outer table so lazy-loaded rows appear before we read the tag list. */
+async function scrollNoteOuterTable(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const table = [...document.querySelectorAll("table")].find((el) =>
+      el.textContent?.includes("累計加減價額")
+    );
+    if (!table) {
+      return;
+    }
+    let previousCount = 0;
+    for (let attempt = 0; attempt < 32; attempt += 1) {
+      const rows = [...table.querySelectorAll("tr.ng-scope")];
+      for (const row of rows) {
+        row.scrollIntoView({ block: "nearest", behavior: "instant" });
+      }
+      table.scrollIntoView({ block: "end", behavior: "instant" });
+      window.scrollTo(0, document.body.scrollHeight);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const count = table.querySelectorAll("tr.ng-scope").length;
+      if (count > 0 && count === previousCount) {
+        break;
+      }
+      previousCount = count;
+    }
+  });
+}
+
+function dedupeNoteTagRows(tags: NoteTagRow[]): NoteTagRow[] {
+  const byUuid = new Map<string, NoteTagRow>();
+  for (const tag of tags) {
+    if (!byUuid.has(tag.tagUuid)) {
+      byUuid.set(tag.tagUuid, tag);
+    }
+  }
+  return [...byUuid.values()].sort((a, b) =>
+    a.tagName.localeCompare(b.tagName, "zh-Hant")
+  );
+}
+
+async function readTagsFromAngularDataModel(page: Page): Promise<NoteTagRow[]> {
   return page.evaluate(() => {
+    const w = window as Window & {
+      angular?: {
+        element: (el: HTMLElement) => { scope: () => unknown };
+      };
+    };
+    const ang = w.angular?.element(document.body);
+    if (!ang) {
+      return [];
+    }
+    const seenUuid = new Set<string>();
+    const seenObj = new WeakSet<object>();
+    const found: NoteTagRow[] = [];
+
+    function tryPush(item: unknown): void {
+      if (!item || typeof item !== "object") {
+        return;
+      }
+      const tag = item as {
+        tag_uuid?: string;
+        tag_name?: string;
+        attribute_type?: string;
+      };
+      if (!tag.tag_uuid || !tag.tag_name || seenUuid.has(tag.tag_uuid)) {
+        return;
+      }
+      seenUuid.add(tag.tag_uuid);
+      found.push({
+        tagUuid: tag.tag_uuid,
+        tagName: tag.tag_name,
+        attributeType: tag.attribute_type ?? "",
+      });
+    }
+
+    function walk(obj: unknown, depth: number): void {
+      if (!obj || depth > 14 || typeof obj !== "object") {
+        return;
+      }
+      if (seenObj.has(obj)) {
+        return;
+      }
+      seenObj.add(obj);
+      if (Array.isArray(obj)) {
+        for (const item of obj) {
+          tryPush(item);
+          walk(item, depth + 1);
+        }
+        return;
+      }
+      for (const [key, value] of Object.entries(obj)) {
+        if (key.startsWith("$") || key.startsWith("_")) {
+          continue;
+        }
+        tryPush(value);
+        walk(value, depth + 1);
+      }
+    }
+
+    try {
+      walk(ang.scope(), 0);
+      walk((ang.scope() as { $root?: unknown }).$root, 0);
+    } catch {
+      // ignore scope walk failures
+    }
+    return found;
+  });
+}
+
+async function readNoteTagRowsFromDom(page: Page): Promise<NoteTagRow[]> {
+  const tags = await page.evaluate(() => {
     const w = window as Window & {
       angular?: {
         element: (el: HTMLElement) => {
@@ -245,6 +413,106 @@ async function readNoteTagRows(page: Page): Promise<NoteTagRow[]> {
       ];
     });
   });
+  return dedupeNoteTagRows(tags);
+}
+
+async function readNoteTagRows(page: Page): Promise<NoteTagRow[]> {
+  await waitForNoteOuterTable(page);
+  await scrollNoteOuterTable(page);
+  const [domTags, angularTags] = await Promise.all([
+    readNoteTagRowsFromDom(page),
+    readTagsFromAngularDataModel(page),
+  ]);
+  return dedupeNoteTagRows([...domTags, ...angularTags]);
+}
+
+async function resolveTagFromRowScope(
+  page: Page,
+  itemName: string
+): Promise<NoteTagRow | null> {
+  await waitForNoteOuterTable(page);
+  await scrollNoteOuterTable(page);
+  const row = page
+    .locator("table.table-hover tr.ng-scope")
+    .filter({ hasText: itemName })
+    .first();
+  if ((await row.count()) === 0) {
+    return null;
+  }
+  return row.evaluate((el) => {
+    const w = window as Window & {
+      angular?: {
+        element: (el: HTMLElement) => {
+          scope: () => {
+            tag?: {
+              tag_uuid: string;
+              tag_name: string;
+              attribute_type: string;
+            };
+          };
+        };
+      };
+    };
+    const tag = w.angular?.element(el as HTMLElement).scope().tag;
+    if (!tag?.tag_uuid || !tag.tag_name) {
+      return null;
+    }
+    return {
+      tagUuid: tag.tag_uuid,
+      tagName: tag.tag_name,
+      attributeType: tag.attribute_type,
+    };
+  });
+}
+
+type NoteDrilldownJob = {
+  outerName: string;
+  tag: NoteTagRow;
+};
+
+function buildTagLookup(tags: NoteTagRow[]): Map<string, NoteTagRow> {
+  const map = new Map<string, NoteTagRow>();
+  for (const tag of tags) {
+    map.set(tag.tagName, tag);
+    map.set(normalizeNoteItemName(tag.tagName), tag);
+  }
+  return map;
+}
+
+function findTagForOuterName(
+  lookup: Map<string, NoteTagRow>,
+  outerName: string
+): NoteTagRow | undefined {
+  return lookup.get(outerName) ?? lookup.get(normalizeNoteItemName(outerName));
+}
+
+async function resolveDrilldownJobsForProductOuter(
+  page: Page,
+  productOuter: NoteOuterItem[],
+  initialTags: NoteTagRow[]
+): Promise<NoteDrilldownJob[]> {
+  const lookup = buildTagLookup(initialTags);
+  for (const tag of await readTagsFromAngularDataModel(page)) {
+    if (!lookup.has(tag.tagName)) {
+      lookup.set(tag.tagName, tag);
+      lookup.set(normalizeNoteItemName(tag.tagName), tag);
+    }
+  }
+  const jobs: NoteDrilldownJob[] = [];
+  for (const item of productOuter) {
+    let tag = findTagForOuterName(lookup, item.name);
+    if (!tag) {
+      tag = (await resolveTagFromRowScope(page, item.name)) ?? undefined;
+      if (tag) {
+        lookup.set(tag.tagName, tag);
+        lookup.set(normalizeNoteItemName(tag.tagName), tag);
+      }
+    }
+    if (tag) {
+      jobs.push({ outerName: item.name, tag });
+    }
+  }
+  return jobs;
 }
 
 async function openNoteDrilldown(page: Page, tag: NoteTagRow): Promise<void> {
@@ -305,18 +573,17 @@ async function openNoteDrilldown(page: Page, tag: NoteTagRow): Promise<void> {
 async function fetchAllNoteDrilldowns(
   page: Page,
   startDate: string,
-  endDate: string
+  endDate: string,
+  jobs: NoteDrilldownJob[]
 ): Promise<{ itemName: string; file: DownloadedXlsx }[]> {
-  const tags = await readNoteTagRows(page);
-  if (tags.length === 0) {
+  if (jobs.length === 0) {
     throw new IchefFetchError("注記分析 outer list is empty");
   }
   const drilldowns: { itemName: string; file: DownloadedXlsx }[] = [];
-  for (const tag of tags) {
-    await openNoteDrilldown(page, tag);
+  for (const job of jobs) {
+    await openNoteDrilldown(page, job.tag);
     await setAngularDateRange(page, startDate, endDate);
     await page.getByText(startDate).first().waitFor({ timeout: 30_000 });
-    // Drill-down data loads after the date apply; wait for body rows when present.
     await page
       .locator("table")
       .filter({ hasText: "點選數" })
@@ -325,12 +592,14 @@ async function fetchAllNoteDrilldowns(
       .waitFor({ timeout: 20_000 })
       .catch(() => undefined);
     const downloadName =
-      tag.attributeType === "comment" ? "下載註記比例.XLS" : /下載.+分析\.xls/i;
+      job.tag.attributeType === "comment"
+        ? "下載註記比例.XLS"
+        : /下載.+分析\.xls/i;
     await page.getByText(downloadName).first().waitFor({ timeout: 30_000 });
     const file = await clickDownload(page, downloadName);
-    drilldowns.push({ itemName: tag.tagName, file });
+    drilldowns.push({ itemName: job.outerName, file });
   }
-  if (drilldowns.length !== tags.length) {
+  if (drilldowns.length !== jobs.length) {
     throw new IchefFetchError(
       "注記分析 drill-down count does not match outer list"
     );
@@ -357,27 +626,66 @@ export async function fetchIchefBusinessReports(
     const punches = await clickDownload(page, "下載打卡記錄");
 
     await openReport(page, NOTE_PATH, range.startDate, range.endDate);
-    await page
-      .getByText("下載註記分析.XLS")
-      .first()
-      .waitFor({ timeout: 30_000 });
-    const noteOuter = await clickDownload(page, "下載註記分析.XLS");
+    await waitForNoteReportReady(page, range.startDate);
+    const noteOuter = await downloadModifierAnalysisOuter(page);
+    const productOuter = await parseOuterItemsFromDownload(noteOuter);
+    if (productOuter.length === 0) {
+      throw new IchefFetchError("modifier-analysis 外層 xlsx 無品項列");
+    }
+    await openReport(page, NOTE_PATH, range.startDate, range.endDate);
+    await waitForNoteReportReady(page, range.startDate);
+    const noteTags = await readNoteTagRows(page);
+    const drilldownJobs = await resolveDrilldownJobsForProductOuter(
+      page,
+      productOuter,
+      noteTags
+    );
+    const unresolvedOuter = productOuter.filter(
+      (item) => !drilldownJobs.some((job) => job.outerName === item.name)
+    );
+    if (unresolvedOuter.length > 0) {
+      const preview = unresolvedOuter
+        .map((item) => item.name)
+        .slice(0, 8)
+        .join("、");
+      throw new IchefFetchError(
+        `外層 xlsx ${productOuter.length} 品項中有 ${unresolvedOuter.length} 個無法點進明細：${preview}${unresolvedOuter.length > 8 ? "…" : ""}`
+      );
+    }
     const noteDrilldowns = await fetchAllNoteDrilldowns(
       page,
       range.startDate,
-      range.endDate
+      range.endDate,
+      drilldownJobs
     );
+
+    const drilldownNames = noteDrilldowns.map((item) => item.itemName);
 
     if (
       !checkout.bytes.length ||
       !punches.bytes.length ||
       !noteOuter.bytes.length ||
-      noteDrilldowns.some((item) => !item.file.bytes.length)
+      drilldownJobs.length === 0 ||
+      noteDrilldowns.some((item) => !item.file.bytes.length) ||
+      !noteOuterMatchesDrilldowns(productOuter, drilldownNames)
     ) {
-      throw new IchefFetchError("網頁取數 returned an empty xlsx");
+      const missing = noteOuterNamesMissingDrilldowns(
+        productOuter,
+        drilldownNames
+      );
+      const preview = missing.slice(0, 8).join("、");
+      throw new IchefFetchError(
+        `注記分析未全到齊（外層 xlsx ${productOuter.length} 品項，明細 ${new Set(drilldownNames).size} 品項${missing.length > 0 ? `；缺少明細：${preview}${missing.length > 8 ? "…" : ""}` : ""}）`
+      );
     }
 
-    const fetched = { checkout, punches, noteOuter, noteDrilldowns };
+    const fetched = {
+      checkout,
+      punches,
+      noteOuter,
+      noteOuterItems: productOuter,
+      noteDrilldowns,
+    };
     return fetched;
   } finally {
     await browser.close();

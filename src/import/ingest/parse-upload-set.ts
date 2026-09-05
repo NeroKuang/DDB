@@ -1,10 +1,14 @@
 import type { CheckoutNoteLine } from "@/import/parse-checkout";
 import { parseCheckoutRows } from "@/import/parse-checkout";
-import type { NoteAnalysisClick } from "@/import/parse-note-analysis";
+import type {
+  NoteAnalysisClick,
+  NoteOuterItem,
+} from "@/import/parse-note-analysis";
 import {
   itemNameFromDrilldownFilename,
+  noteOuterMatchesDrilldowns,
   parseNoteDrilldownRows,
-  parseNoteOuterRows,
+  resolveNoteOuterItems,
 } from "@/import/parse-note-analysis";
 import type { PunchPair } from "@/import/parse-punches";
 import { parsePunchRows } from "@/import/parse-punches";
@@ -15,17 +19,32 @@ import {
   type UploadFileInput,
 } from "@/import/upload-ichef-files";
 
+/** Keep one drill-down file per 品項名（iCHEF 偶爾同名重複下載）. */
+function dedupeDrilldownFiles(files: UploadFileInput[]): UploadFileInput[] {
+  const byName = new Map<string, UploadFileInput>();
+  for (const file of files) {
+    const name = itemNameFromDrilldownFilename(file.filename);
+    const existing = byName.get(name);
+    if (!existing || file.bytes.length > existing.bytes.length) {
+      byName.set(name, file);
+    }
+  }
+  return [...byName.values()];
+}
+
 export type ParsedUploadSet = {
   classified: ReturnType<typeof classifyUploadedFiles>;
   checkoutLines: CheckoutNoteLine[];
   punchPairs: PunchPair[];
   noteClicks: NoteAnalysisClick[];
+  noteOuterItems: NoteOuterItem[];
   noteOuterComplete: boolean;
 };
 
 export async function parseUploadSet(
   files: UploadFileInput[],
-  period: { start: Date; end: Date }
+  period: { start: Date; end: Date },
+  options?: { noteOuterItems?: NoteOuterItem[] }
 ): Promise<ParsedUploadSet> {
   validateUploadSet(files);
   const classified = classifyUploadedFiles(files);
@@ -47,15 +66,20 @@ export async function parseUploadSet(
     ),
     period
   );
-  const outer = parseNoteOuterRows(
-    await readFirstSheetFromBuffer(
-      classified.noteOuter.bytes,
-      classified.noteOuter.filename
-    )
+  const drilldownFiles = dedupeDrilldownFiles(classified.drilldowns);
+  const drilldownNames = drilldownFiles.map((file) =>
+    itemNameFromDrilldownFilename(file.filename)
   );
+  const { items: outer, complete: noteOuterComplete } =
+    await resolveNoteOuterItems({
+      domScrape: options?.noteOuterItems,
+      noteOuterBytes: classified.noteOuter.bytes,
+      noteOuterLabel: classified.noteOuter.filename,
+      drilldownItemNames: drilldownNames,
+    });
   const noteClicks = (
     await Promise.all(
-      classified.drilldowns.map(async (file) =>
+      drilldownFiles.map(async (file) =>
         parseNoteDrilldownRows(
           await readFirstSheetFromBuffer(file.bytes, file.filename),
           itemNameFromDrilldownFilename(file.filename)
@@ -64,22 +88,12 @@ export async function parseUploadSet(
     )
   ).flat();
 
-  const outerNames = new Set(outer.map((item) => item.name));
-  const drilldownNames = new Set(
-    classified.drilldowns.map((file) =>
-      itemNameFromDrilldownFilename(file.filename)
-    )
-  );
-  const noteOuterComplete =
-    outerNames.size > 0 &&
-    [...outerNames].every((name) => drilldownNames.has(name)) &&
-    drilldownNames.size === outerNames.size;
-
   return {
     classified,
     checkoutLines,
     punchPairs: punches.pairs,
     noteClicks,
+    noteOuterItems: outer,
     noteOuterComplete,
   };
 }

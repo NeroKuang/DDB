@@ -1,8 +1,7 @@
 import type { AccountRole } from "@prisma/client";
 import type { PayRowOriginals, Venue } from "@/compile/types";
-import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import { prisma } from "@/lib/prisma";
-import { assertJulyPayPeriodUnlocked } from "@/pay-period/guards";
+import { assertPayPeriodUnlockedForWrite } from "@/pay-period/guards";
 import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";
 
 export type PayRowStoredRecord = {
@@ -46,8 +45,11 @@ function parseValuesJson(raw: unknown): Partial<PayRowOriginals> {
   return out;
 }
 
-async function ensureJulyPayPeriod(storeId: string): Promise<string> {
-  const row = await ensurePayPeriodRow(storeId, JULY_2026_PERIOD_KEY);
+async function ensurePayPeriodId(
+  storeId: string,
+  periodKey: string
+): Promise<string> {
+  const row = await ensurePayPeriodRow(storeId, periodKey);
   return row.id;
 }
 
@@ -115,7 +117,7 @@ export async function upsertPayRowStored(input: {
   if (input.actorRole !== "ADMIN") {
     throw new Error("只有 Admin 可以修改薪資儲存值");
   }
-  await assertJulyPayPeriodUnlocked(input.storeId);
+  await assertPayPeriodUnlockedForWrite(input.storeId, input.periodKey);
   const staff = await prisma.staff.findUnique({ where: { id: input.staffId } });
   if (!staff || staff.storeId !== input.storeId) {
     throw new Error("店員不存在");
@@ -127,7 +129,7 @@ export async function upsertPayRowStored(input: {
       cleaned[key] = value;
     }
   }
-  const payPeriodId = await ensureJulyPayPeriod(input.storeId);
+  const payPeriodId = await ensurePayPeriodId(input.storeId, input.periodKey);
   const existing = await prisma.payRowStored.findUnique({
     where: {
       payPeriodId_staffId_venue: {

@@ -1,0 +1,22 @@
+node_modules
+.next
+.git
+.gitignore
+.env*
+!.env.example
+coverage
+.DS_Store
+npm-debug.log*
+.vercel
+storage/ichef
+*.xlsx
+*.csv
+!7月報表-中山 - 7月.csv
+.scratch
+docs
+AGENTS.md
+CLAUDE.md
+CONTEXT.md
+questions-for-custums.md
+*.plan.md
+tsconfig.tsbuildinfo

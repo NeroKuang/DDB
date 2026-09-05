@@ -19,6 +19,8 @@ export function buildPeriodDashboardAlerts(input: {
   minioConfigured: boolean;
   isAdmin: boolean;
   hasImportRun: boolean;
+  posItemZeroPriceCount?: number;
+  posItemAllBillableZero?: boolean;
 }): DashboardAlert[] {
   const alerts: DashboardAlert[] = [];
 
@@ -127,6 +129,23 @@ export function buildPeriodDashboardAlerts(input: {
       title: "MinIO 未設定",
       detail: "匯入仍寫 DB，但 raw／audit 存證與 tar.gz 下載會略過",
       href: "/storage-retention",
+    });
+  }
+
+  if (input.isAdmin && input.posItemAllBillableZero) {
+    alerts.push({
+      severity: "warning",
+      title: "品項售價全部未設定",
+      detail:
+        "所有非贈送品 POS 售價皆為 0，請至品項管理按「從匯入建議售價」或手動填寫",
+      href: "/pos-items",
+    });
+  } else if (input.isAdmin && (input.posItemZeroPriceCount ?? 0) > 0) {
+    alerts.push({
+      severity: "warning",
+      title: `${input.posItemZeroPriceCount} 個品項未設定售價`,
+      detail: "非贈送品售價為 0 會使業績面注記的總賣出／常態抽成顯示 0",
+      href: "/pos-items",
     });
   }
 

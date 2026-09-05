@@ -5,33 +5,51 @@ import {
   PerformanceSummaryTable,
 } from "@/components/performance-panels";
 import { PageHeader } from "@/components/page-header";
+import { PERIOD_QUERY_PARAM } from "@/components/period-selector";
 import { authOptions } from "@/lib/auth-options";
+import { resolvePeriodKey } from "@/lib/resolve-period-key";
+import { prisma } from "@/lib/prisma";
 import {
-  analyzeAllStaffPerformance,
-  analyzeStaffPerformance,
-  resolveStaffByNickname,
-} from "@/performance/analyze-staff-performance";
-import { loadJuly2026PerformanceInput } from "@/performance/load-july-performance";
+  buildStaffPerformanceViews,
+  pickStaffPerformanceView,
+} from "@/performance/build-performance-views";
+import { loadPerformanceInput } from "@/performance/load-performance-input";
+import { resolveStaffByNickname } from "@/performance/analyze-staff-performance";
 import {
-  frozenPerformanceForNickname,
   frozenPerformanceSummaries,
-  getJuly2026PayPeriodState,
+  getPayPeriodState,
   isPayPeriodLocked,
 } from "@/pay-period/manage";
+import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 type PageProps = {
-  searchParams: Promise<{ nickname?: string }>;
+  searchParams: Promise<{ nickname?: string; period?: string }>;
 };
 
 export default async function PerformancePage({ searchParams }: PageProps) {
   const session = await getServerSession(authOptions);
-
   const params = await searchParams;
-  const input = await loadJuly2026PerformanceInput();
-  const periodState = await getJuly2026PayPeriodState();
+  const store = await prisma.store.findUnique({
+    where: { code: ZHONGSHAN_STORE_CODE },
+    select: { id: true },
+  });
+  const periodKey = await resolvePeriodKey({
+    searchParam: params.period,
+    storeId: store?.id,
+  });
+  const input = await loadPerformanceInput(periodKey, { storeId: store?.id });
+  const liveViews = buildStaffPerformanceViews(input);
+  const periodState = store
+    ? await getPayPeriodState(store.id, periodKey)
+    : null;
   const frozen = isPayPeriodLocked(periodState);
+  const views =
+    frozen && periodState?.snapshot
+      ? frozenPerformanceSummaries(periodState.snapshot)
+      : liveViews;
   const role = session?.user?.role;
   const isPersonal = role === "PERSONAL";
+  const periodQuery = `${PERIOD_QUERY_PARAM}=${encodeURIComponent(periodKey)}`;
 
   let nickname = params.nickname?.trim() || "";
   if (isPersonal) {
@@ -52,27 +70,22 @@ export default async function PerformancePage({ searchParams }: PageProps) {
   }
 
   if (!nickname) {
-    const rows = frozen
-      ? frozenPerformanceSummaries(periodState!.snapshot!)
-      : analyzeAllStaffPerformance({
-          allStaff: input.staff,
-          checkoutLines: input.checkoutLines,
-          noteClicks: input.noteClicks,
-          templateTasks: input.templateTasks,
-          adHocTasks: input.adHocTasks,
-        });
     return (
       <div className="flex flex-col gap-6">
         <PageHeader
           title="業績面"
           description={`期間：${input.periodLabel}${frozen ? "（已鎖定）" : ""}。依結帳業績注記與注記分析編成。`}
         />
-        <PerformanceSummaryTable rows={rows} />
+        <PerformanceSummaryTable rows={views} periodKey={periodKey} />
       </div>
     );
   }
 
-  const staff = resolveStaffByNickname(input.staff, nickname);
+  const staff = resolveStaffByNickname(
+    input.staff,
+    nickname,
+    input.periodNicknameAttributions
+  );
   if (!staff) {
     return (
       <div className="flex flex-col gap-4">
@@ -81,7 +94,10 @@ export default async function PerformancePage({ searchParams }: PageProps) {
           找不到暱稱「{nickname}」的店員。
         </p>
         {!isPersonal ? (
-          <Link href="/performance" className="text-sm underline">
+          <Link
+            href={`/performance?${periodQuery}`}
+            className="text-sm underline"
+          >
             回列表
           </Link>
         ) : null}
@@ -89,23 +105,27 @@ export default async function PerformancePage({ searchParams }: PageProps) {
     );
   }
 
-  const view =
-    frozen && periodState?.snapshot
-      ? (frozenPerformanceForNickname(periodState.snapshot, nickname) ??
-        analyzeStaffPerformance({
-          staff,
-          checkoutLines: input.checkoutLines,
-          noteClicks: input.noteClicks,
-          templateTasks: input.templateTasks,
-          adHocTasks: input.adHocTasks,
-        }))
-      : analyzeStaffPerformance({
-          staff,
-          checkoutLines: input.checkoutLines,
-          noteClicks: input.noteClicks,
-          templateTasks: input.templateTasks,
-          adHocTasks: input.adHocTasks,
-        });
+  const view = pickStaffPerformanceView(views, staff);
+  if (!view) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader title="業績面" />
+        <p role="alert" className="text-sm text-red-700">
+          {frozen
+            ? `鎖定快照中找不到「${staff.primaryNickname}」的業績列。`
+            : `「${staff.primaryNickname}」本期沒有業績資料。`}
+        </p>
+        {!isPersonal ? (
+          <Link
+            href={`/performance?${periodQuery}`}
+            className="text-sm underline"
+          >
+            回列表
+          </Link>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,7 +135,10 @@ export default async function PerformancePage({ searchParams }: PageProps) {
       >
         {!isPersonal ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            <Link href="/performance" className="underline underline-offset-2">
+            <Link
+              href={`/performance?${periodQuery}`}
+              className="underline underline-offset-2"
+            >
               業績列表
             </Link>
           </p>

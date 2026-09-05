@@ -16,6 +16,9 @@ export type StaffMaster = {
   commissionRate: number;
   targetBonusAmount: number;
   laborHealthInsuranceAmount: number;
+  laborHealthInsuranceMode: "fixed" | "ratio";
+  laborHealthInsuranceRatio: number;
+  laborHealthInsuranceCarryOverMonthly: boolean;
   payNote: string;
 };
 
@@ -40,6 +43,9 @@ export type PeriodStaffInput = {
   landTaskBonusOn: Venue;
   payTargetBonus: boolean;
   perRow: Partial<Record<Venue, RowManuals>>;
+  laborHealthInsuranceMode?: "fixed" | "ratio";
+  laborHealthInsuranceAmount?: number;
+  laborHealthInsuranceRatio?: number;
 };
 
 export type TemplateTask = {
@@ -100,6 +106,7 @@ export type PayRow = {
 export type CompileResult = {
   payRows: PayRow[];
   unmatchedNicknames: { nickname: string; amount: number }[];
+  blockingUnmatchedNicknames: { nickname: string; amount: number }[];
   unmatchedClicks: { itemName: string; nickname: string; clicks: number }[];
   lockEligible: boolean;
   requiredImportsComplete: boolean;
