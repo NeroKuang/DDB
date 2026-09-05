@@ -16,7 +16,7 @@ import { compileZhongshanPayPeriod } from "@/compile/compile-for-period";
 import { isEmptyImportCompileError } from "@/compile/empty-import-error";
 import { describeLockBlockReasons } from "@/pay-period/lock-eligibility";
 import { authOptions } from "@/lib/auth-options";
-import { logServerError } from "@/lib/user-facing-error";
+import { logServerError } from "@/lib/log-server-error";
 import { prisma } from "@/lib/prisma";
 import { resolvePeriodKey } from "@/lib/resolve-period-key";
 import { getPayPeriodState, isPayPeriodLocked } from "@/pay-period/manage";

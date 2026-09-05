@@ -151,11 +151,11 @@ Header：`Authorization: Bearer <CRON_SECRET>`
 
 ## 常見問題
 
-| 問題                  | 處理                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| 「MinIO 未設定」      | 確認 `.env` 三項 `MINIO_ENDPOINT`／`ACCESS_KEY`／`SECRET_KEY` 非空，且 bucket `ddb` 已建立 |
-| 匯入成功但 MinIO 無檔 | 同上；或檢查 endpoint 是否用 **內網 URL**（Zeabur）                                        |
-| port 被佔用           | 停掉 BeyRotate 或其他佔 5432／9000 的容器後再 `docker compose up -d`                       |
-| cron 401              | `Authorization: Bearer` 與 `CRON_SECRET` 完全一致                                          |
-| 本機 port 衝突        | DDB 固定 **5003**；勿用 3000                                                               |
-| 取數／系統錯誤除錯    | 看 `storage/logs/yyyy-mm-dd/errors.log`（台北日）；密鑰已 redact。線上容器可用 exec 讀取   |
+| 問題                  | 處理                                                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 「MinIO 未設定」      | 確認 `.env` 三項 `MINIO_ENDPOINT`／`ACCESS_KEY`／`SECRET_KEY` 非空，且 bucket `ddb` 已建立                                  |
+| 匯入成功但 MinIO 無檔 | 同上；或檢查 endpoint 是否用 **內網 URL**（Zeabur）                                                                         |
+| port 被佔用           | 停掉 BeyRotate 或其他佔 5432／9000 的容器後再 `docker compose up -d`                                                        |
+| cron 401              | `Authorization: Bearer` 與 `CRON_SECRET` 完全一致                                                                           |
+| 本機 port 衝突        | DDB 固定 **5003**；勿用 3000                                                                                                |
+| 取數／系統錯誤除錯    | 看 Zeabur **Runtime Logs**（`logServerError` JSON）。本機可設 `ERROR_LOG_TO_FILE=1` 寫 `storage/logs/yyyy-mm-dd/errors.log` |

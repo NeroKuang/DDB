@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { reportClientErrorAction } from "@/lib/report-client-error";
 
 export default function ShellError({
@@ -10,15 +10,23 @@ export default function ShellError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const reportedKey = useRef<string | null>(null);
+
   useEffect(() => {
-    console.error("[shell-error]", error);
+    const key = `${error.digest ?? ""}:${error.message}`;
+    if (reportedKey.current === key) {
+      return;
+    }
+    reportedKey.current = key;
+    console.error("[shell-error]", error.message, error.digest);
     void reportClientErrorAction({
       context: "shell-error",
       message: error.message,
       digest: error.digest,
       stack: error.stack,
     });
-  }, [error]);
+    // Intentionally omit error.stack from deps — identity can churn without new errors.
+  }, [error.digest, error.message]);
 
   return (
     <div className="card-surface mx-auto max-w-lg space-y-3 p-6">

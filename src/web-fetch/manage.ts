@@ -12,7 +12,7 @@ import { assertPayPeriodUnlockedForWrite } from "@/pay-period/guards";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
 import { encodeNoteItemNameForFilename } from "@/import/parse-note-analysis";
-import { logServerError } from "@/lib/user-facing-error";
+import { logServerError } from "@/lib/log-server-error";
 
 export type WebFetchProgress = {
   periodKey: string;

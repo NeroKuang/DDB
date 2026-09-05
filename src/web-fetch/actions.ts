@@ -4,7 +4,8 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { logServerError, toUserFacingMessage } from "@/lib/user-facing-error";
+import { toUserFacingMessage } from "@/lib/user-facing-error";
+import { logServerError } from "@/lib/log-server-error";
 import { periodKeyFromFormData } from "@/lib/resolve-period-key";
 import { runWebFetchJob, startWebFetchAndQueueJob } from "@/web-fetch/manage";
 

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { logServerError, toUserFacingMessage } from "@/lib/user-facing-error";
+import { toUserFacingMessage } from "@/lib/user-facing-error";
+import { logServerError } from "@/lib/log-server-error";
 import { periodKeyFromFormData } from "@/lib/resolve-period-key";
 import { assertPayPeriodUnlockedForWrite } from "@/pay-period/guards";
 import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";

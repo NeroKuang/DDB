@@ -1,6 +1,6 @@
-import { appendErrorLog } from "@/lib/error-log";
-
-/** Map raw failures to safe Traditional Chinese copy for the UI. */
+/** Map raw failures to safe Traditional Chinese copy for the UI.
+ * Safe for Client Components — no Node built-ins.
+ */
 export function toUserFacingMessage(error: unknown, fallback: string): string {
   if (!(error instanceof Error)) {
     return fallback;
@@ -38,14 +38,4 @@ function shouldHideTechnicalMessage(message: string): boolean {
     return true;
   }
   return false;
-}
-
-/** Console + storage/logs/yyyy-mm-dd/errors.log (Asia/Taipei). Never throws. */
-export function logServerError(
-  context: string,
-  error: unknown,
-  meta?: Record<string, unknown>
-): void {
-  console.error(`[${context}]`, error);
-  appendErrorLog({ context, error, meta });
 }

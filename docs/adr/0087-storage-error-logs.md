@@ -1,3 +1,5 @@
-# 伺服器錯誤寫入 storage/logs（Asia/Taipei 日目錄）
+# 伺服器錯誤：stdout 為主，檔案日誌選用
 
-`logServerError` 與網頁取數失敗會 append 到 `storage/logs/yyyy-mm-dd/errors.log`。內容含 context、message、stack、meta；已知密鑰會 redact。日誌不進 git。Zeabur 容器磁碟為暫時性，除錯時用 service exec 讀取後貼給 Agent。
+`logServerError`（`src/lib/log-server-error.ts`，`server-only`）把錯誤以 JSON 打到 **stdout**，Zeabur runtime 日誌可查。  
+`toUserFacingMessage` 留在 `user-facing-error.ts`，可給 Client Component，**不可** import `fs`／`error-log`。  
+僅當 `ERROR_LOG_TO_FILE=1` 時才寫 `storage/logs/yyyy-mm-dd/errors.log`（本機除錯）；Zeabur 容器磁碟暫時性，預設不寫檔。

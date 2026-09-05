@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logServerError } from "@/lib/user-facing-error";
+import { logServerError } from "@/lib/log-server-error";
 import { runStorageRetentionCron } from "@/storage-retention/run-retention";
 
 export async function GET(request: Request): Promise<NextResponse> {
