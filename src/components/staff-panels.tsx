@@ -692,45 +692,111 @@ function StaffInlineEdit({
   periodOptions: PeriodOption[];
   defaultGuestPeriodKey?: string;
 }) {
+  const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(updateStaffAction, initial);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const router = useRouter();
   const periodQuery = defaultGuestPeriodKey
     ? `?period=${encodeURIComponent(defaultGuestPeriodKey)}`
     : "";
+  const titleId = `staff-edit-dialog-${person.id}`;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+    if (open) {
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!state.ok) {
+      return;
+    }
+    setOpen(false);
+    router.refresh();
+  }, [state.ok, router]);
 
   return (
-    <details className="text-sm">
-      <summary className="cursor-pointer underline underline-offset-2">
-        編輯
-      </summary>
-      <form
-        action={action}
-        className="mt-3 grid max-w-2xl gap-3 sm:grid-cols-2"
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-sm underline underline-offset-2"
       >
-        <input type="hidden" name="id" value={person.id} />
-        <input type="hidden" name="storeId" value={storeId} />
-        <StaffFormFields
-          person={person}
-          periodOptions={periodOptions}
-          defaultGuestPeriodKey={defaultGuestPeriodKey}
-        />
-        <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+        編輯
+      </button>
+      <dialog
+        ref={dialogRef}
+        className="payroll-dialog max-w-3xl"
+        onClose={() => setOpen(false)}
+        aria-labelledby={titleId}
+      >
+        <div className="space-y-4">
+          <header className="flex items-start justify-between gap-3">
+            <div>
+              <h2 id={titleId} className="text-lg font-semibold">
+                編輯店員主檔
+              </h2>
+              <p className="text-sm text-zinc-500">
+                {person.primaryNickname}
+                {person.legalName ? `（${person.legalName}）` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="btn-secondary px-2 py-1 text-xs"
+              aria-label="關閉"
+            >
+              關閉
+            </button>
+          </header>
+          <form
+            key={open ? `open-${person.id}` : `closed-${person.id}`}
+            action={action}
+            className="grid gap-3 sm:grid-cols-2"
           >
-            {pending ? "儲存中…" : "儲存"}
-          </button>
-          <Link
-            href={`/staff/${person.id}${periodQuery}`}
-            className="text-xs text-zinc-500 underline underline-offset-2"
-          >
-            完整編輯（含 personal 帳號）
-          </Link>
+            <input type="hidden" name="id" value={person.id} />
+            <input type="hidden" name="storeId" value={storeId} />
+            <StaffFormFields
+              person={person}
+              periodOptions={periodOptions}
+              defaultGuestPeriodKey={defaultGuestPeriodKey}
+            />
+            <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+              <button
+                type="submit"
+                disabled={pending}
+                className="rounded bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+              >
+                {pending ? "儲存中…" : "儲存"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="btn-secondary px-3 py-1.5 text-sm"
+              >
+                取消
+              </button>
+              <Link
+                href={`/staff/${person.id}${periodQuery}`}
+                className="text-xs text-zinc-500 underline underline-offset-2"
+              >
+                完整編輯（含 personal 帳號）
+              </Link>
+            </div>
+          </form>
+          {state.message ? <StatusMessage state={state} /> : null}
         </div>
-      </form>
-      {state.message ? <StatusMessage state={state} /> : null}
-    </details>
+      </dialog>
+    </>
   );
 }
 
