@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 /*
- * DDB 視覺：日式店務（密度、表格）+ 歌德修女（DDB 品牌）
- * - shop：暖灰 parchment、緊湊表格、琥珀 secondary
- * - gothic/nun：酒紅 accent、深色 sidebar、display 襯線標題
- * 專案內無獨立修女／歌德 UI 套件；由店內品項語彙（修女貪杯等）延伸。
+ * DDB visual system — ADR-0089 / .cursor/rules/ddb-cathedral-ui.mdc
+ * Always-dark: obsidian + cold silver + wine red; cathedral shell ornaments;
+ * tables/forms stay rectangular. Legacy parchment light tokens below are
+ * deprecated as a brand path; retheme toward forced dark when implementing.
  */
 :root {
   --background: #e8e0d4;

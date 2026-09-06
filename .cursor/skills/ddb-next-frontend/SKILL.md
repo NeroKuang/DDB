@@ -7,12 +7,24 @@ description: >-
 
 # DDB Next.js frontend
 
-This repo is **Next.js App Router** (`src/app`) + **Tailwind v4**, aligned with BeyRotate. Dev server is **port 5003**.
+This repo is **Next.js App Router** (`src/app`) + **Tailwind v4**. Dev server is **port 5003**.
+
+## Visual system (read first)
+
+Follow **ADR-0089** and always-on rule `.cursor/rules/ddb-cathedral-ui.mdc`:
+
+- Always-dark cathedral shell: black / cold silver / wine red; nun–church as metaphor only.
+- Ornaments (pointed arch, tracery, stained-glass bands) on **shell** only; tables/forms stay rectangular and scannable.
+- Display serif + UI/table sans; sharp corners; restrained motion; no neon glow / fog loops.
+- Same skin for login, Admin, Supervisor, and personal (personal only sees less data).
+- Settings edits: **dialog popout**, not long `<details>` expanders.
+
+Do **not** reintroduce parchment light-theme as the primary brand.
 
 ## Before changing UI
 
 1. Read `CONTEXT.md` and ADRs that touch the screen. Use glossary terms (薪資報表, 網頁取數, 薪資列) — not synonyms the glossary avoids.
-2. Follow the global frontend rule: reuse existing layout/tokens; mobile-first; semantic HTML; loading/empty/error states.
+2. Reuse tokens in `globals.css` / existing layout; mobile-first; semantic HTML; loading/empty/error states.
 3. User-visible copy is **Traditional Chinese**. Code identifiers stay English.
 
 ## Stack
