@@ -238,6 +238,8 @@ async function waitForAngularRoot(page: Page, label: string): Promise<void> {
         }
         return false;
       },
+      // Playwright: 2nd arg is pageFunction arg, NOT options — must pass undefined.
+      undefined,
       { timeout: ANGULAR_READY_MS }
     );
   } catch (error) {
@@ -722,6 +724,7 @@ async function openNoteDrilldown(page: Page, tag: NoteTagRow): Promise<void> {
         }
         return false;
       },
+      undefined,
       { timeout: ANGULAR_READY_MS }
     );
   } catch (error) {
@@ -778,13 +781,21 @@ async function fetchAllNoteDrilldowns(
   const drilldowns: { itemName: string; file: DownloadedXlsx }[] = [];
   for (const job of jobs) {
     await openNoteDrilldown(page, job.tag);
-    await setAngularDateRange(
-      page,
-      startDate,
-      endDate,
-      `drilldown:${job.outerName}`
-    );
-    await page.getByText(startDate).first().waitFor({ timeout: 30_000 });
+    // Detail pages often inherit the outer date range; skip re-apply when already shown.
+    const dateAlreadyVisible = await page
+      .getByText(startDate)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (!dateAlreadyVisible) {
+      await setAngularDateRange(
+        page,
+        startDate,
+        endDate,
+        `drilldown:${job.outerName}`
+      );
+      await page.getByText(startDate).first().waitFor({ timeout: 30_000 });
+    }
     await page
       .locator("table")
       .filter({ hasText: "點選數" })

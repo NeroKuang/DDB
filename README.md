@@ -47,24 +47,24 @@ npm run test:ichef  # 真實網頁取數（需 .env 憑證；不斷言密碼）
 
 完整範本：`.env.example`。`.env` / `.env.local` **不要 commit**。iCHEF 帳密只給網頁取數用，不要打進畫面或 log。
 
-| 變數                   | 必填   | 說明                                             |
-| ---------------------- | ------ | ------------------------------------------------ |
-| `DATABASE_URL`         | ✓      | Postgres 連線；庫名建議 `ddb`                    |
-| `AUTH_SECRET`          | ✓      | NextAuth 簽章用隨機字串                          |
-| `AUTH_URL`             | ✓      | 本站 URL（本機 `http://localhost:5003`）         |
-| `NEXTAUTH_SECRET`      | ✓      | 可與 `AUTH_SECRET` 相同                          |
-| `NEXTAUTH_URL`         | ✓      | 可與 `AUTH_URL` 相同                             |
-| `NEXT_PUBLIC_SITE_URL` | ✓      | 可與 `AUTH_URL` 相同                             |
-| `ADMIN_USERNAME`       | ✓      | 首次 bootstrap 的 Admin 帳號                     |
-| `ADMIN_PASSWORD`       | ✓      | 首次 bootstrap 的 Admin 密碼                     |
-| `CRON_SECRET`          | 排程用 | 外部 cron 打 API 時的 `Authorization: Bearer …`  |
-| `MINIO_ENDPOINT`       | 存證用 | S3 相容 endpoint（**內網 URL**，見 Zeabur 一節） |
-| `MINIO_ACCESS_KEY`     | 存證用 | MinIO ROOT USER                                  |
-| `MINIO_SECRET_KEY`     | 存證用 | MinIO ROOT PASSWORD                              |
-| `MINIO_BUCKET`         | 選填   | 預設 `ddb`                                       |
-| `STORE_ID`             | 取數用 | iCHEF 門市 ID                                    |
-| `LOGIN_ID`             | 取數用 | iCHEF 登入帳號                                   |
-| `LOGIN_PASSWORD`       | 取數用 | iCHEF 登入密碼                                   |
+| 變數                   | 必填   | 說明                                                                                     |
+| ---------------------- | ------ | ---------------------------------------------------------------------------------------- |
+| `DATABASE_URL`         | ✓      | Postgres 連線；庫名建議 `ddb`。未帶參數時 app 會補 `connection_limit=10&pool_timeout=30` |
+| `AUTH_SECRET`          | ✓      | NextAuth 簽章用隨機字串                                                                  |
+| `AUTH_URL`             | ✓      | 本站 URL（本機 `http://localhost:5003`）                                                 |
+| `NEXTAUTH_SECRET`      | ✓      | 可與 `AUTH_SECRET` 相同                                                                  |
+| `NEXTAUTH_URL`         | ✓      | 可與 `AUTH_URL` 相同                                                                     |
+| `NEXT_PUBLIC_SITE_URL` | ✓      | 可與 `AUTH_URL` 相同                                                                     |
+| `ADMIN_USERNAME`       | ✓      | 首次 bootstrap 的 Admin 帳號                                                             |
+| `ADMIN_PASSWORD`       | ✓      | 首次 bootstrap 的 Admin 密碼                                                             |
+| `CRON_SECRET`          | 排程用 | 外部 cron 打 API 時的 `Authorization: Bearer …`                                          |
+| `MINIO_ENDPOINT`       | 存證用 | S3 相容 endpoint（**內網 URL**，見 Zeabur 一節）                                         |
+| `MINIO_ACCESS_KEY`     | 存證用 | MinIO ROOT USER                                                                          |
+| `MINIO_SECRET_KEY`     | 存證用 | MinIO ROOT PASSWORD                                                                      |
+| `MINIO_BUCKET`         | 選填   | 預設 `ddb`                                                                               |
+| `STORE_ID`             | 取數用 | iCHEF 門市 ID                                                                            |
+| `LOGIN_ID`             | 取數用 | iCHEF 登入帳號                                                                           |
+| `LOGIN_PASSWORD`       | 取數用 | iCHEF 登入密碼                                                                           |
 
 匯入成功後：結構化資料在 **Postgres**；iCHEF 原檔在 MinIO **`raw/`**；編成稽核在 **`audit/`**（見 ADR-0083）。
 
