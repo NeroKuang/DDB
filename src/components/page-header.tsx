@@ -8,10 +8,9 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="space-y-2">
-      <h1 className="font-display text-3xl font-semibold tracking-wide">
-        {title}
-      </h1>
+    <header className="space-y-1.5">
+      <h1 className="page-title">{title}</h1>
+      <hr className="brand-rule" />
       {description ? <p className="text-sm text-muted">{description}</p> : null}
       {children}
     </header>

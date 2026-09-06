@@ -45,4 +45,24 @@ describe("buildPeriodDashboardAlerts", () => {
     });
     expect(alerts.some((a) => a.title.includes("可以鎖定"))).toBe(true);
   });
+
+  it("points unmatched clicks to payroll full list and notes tip analysis", () => {
+    const alerts = buildPeriodDashboardAlerts({
+      locked: false,
+      compileError: null,
+      fetch: null,
+      importSource: "db",
+      requiredImportsComplete: true,
+      lockEligible: false,
+      unmatchedNicknameCount: 0,
+      unmatchedClickCount: 12,
+      minioConfigured: true,
+      isAdmin: true,
+      hasImportRun: true,
+    });
+    const clickAlert = alerts.find((a) => a.title.includes("未對上點選"));
+    expect(clickAlert?.detail).toContain("注記分析");
+    expect(clickAlert?.detail).toContain("不擋鎖定");
+    expect(clickAlert?.href).toBe("/payroll#unmatched-clicks");
+  });
 });

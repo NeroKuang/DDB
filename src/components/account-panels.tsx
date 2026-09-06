@@ -154,21 +154,35 @@ export function AdminResetPasswordForm() {
   );
 }
 
-export function ChangeOwnPasswordForm() {
+export function ChangeOwnPasswordForm({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const [state, action, pending] = useActionState(
     changeOwnPasswordAction,
     initial
   );
   return (
-    <form action={action} className="space-y-2 rounded border p-4">
-      <h2 className="font-medium">變更自己的密碼</h2>
+    <form
+      action={action}
+      className={
+        compact
+          ? "space-y-2 border-t border-[var(--border)] pt-3"
+          : "space-y-2 rounded border p-4"
+      }
+    >
+      <h2 className={compact ? "text-sm font-medium" : "font-medium"}>
+        變更自己的密碼
+      </h2>
       <label className="flex flex-col gap-1 text-sm">
         目前密碼
         <input
           name="currentPassword"
           type="password"
           required
-          className={inputClass}
+          autoComplete="current-password"
+          className={compact ? "field-input" : inputClass}
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -177,13 +191,18 @@ export function ChangeOwnPasswordForm() {
           name="newPassword"
           type="password"
           required
-          className={inputClass}
+          autoComplete="new-password"
+          className={compact ? "field-input" : inputClass}
         />
       </label>
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+        className={
+          compact
+            ? "btn-primary px-3 py-1.5 text-sm disabled:opacity-60"
+            : "rounded bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+        }
       >
         {pending ? "更新中…" : "更新密碼"}
       </button>

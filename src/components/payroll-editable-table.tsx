@@ -10,6 +10,7 @@ import {
   totalPages,
 } from "@/components/list-controls";
 import { ListPageControls } from "@/components/list-toolbar";
+import { IconButton } from "@/components/icon-button";
 import {
   countActiveFilters,
   EMPTY_PAYROLL_FILTERS,
@@ -34,6 +35,7 @@ import {
   type StaffPayProfile,
 } from "@/components/payroll-sort";
 import { PERIOD_QUERY_PARAM } from "@/components/period-selector";
+import { IconEye, IconPencil } from "@/components/ui-icons";
 
 export type { StaffPayProfile };
 
@@ -333,7 +335,7 @@ export function PayrollEditableTable({
 
         {editable ? (
           <p className="text-xs text-muted">
-            點列或「編輯」開啟視窗調整儲存值；留空欄位表示跟隨原始編成數字。
+            點列或「編輯／檢視」圖示開啟視窗調整儲存值；留空欄位表示跟隨原始編成數字。
           </p>
         ) : (
           <p className="text-xs text-muted">點列或「檢視」查看完整薪資明細。</p>
@@ -495,16 +497,16 @@ export function PayrollEditableTable({
                       )}
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn-secondary px-2 py-1 text-xs"
+                      <IconButton
+                        label={editable ? "編輯" : "檢視"}
+                        size="sm"
                         onClick={(event) => {
                           event.stopPropagation();
                           openRow(row);
                         }}
                       >
-                        {editable ? "編輯" : "檢視"}
-                      </button>
+                        {editable ? <IconPencil /> : <IconEye />}
+                      </IconButton>
                     </td>
                   </tr>
                 );

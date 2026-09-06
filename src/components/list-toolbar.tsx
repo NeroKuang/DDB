@@ -5,6 +5,45 @@ import {
   PAGE_SIZE_OPTIONS,
   type PageSizeOption,
 } from "@/components/list-controls";
+import { IconButton } from "@/components/icon-button";
+import { IconChevronLeft, IconChevronRight } from "@/components/ui-icons";
+
+function PaginationNav({
+  page,
+  pages,
+  onPageChange,
+}: {
+  page: number;
+  pages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (pages <= 1) {
+    return null;
+  }
+  return (
+    <nav className="flex items-center gap-1.5" aria-label="列表分頁">
+      <IconButton
+        label="上一頁"
+        size="sm"
+        disabled={page <= 1}
+        onClick={() => onPageChange(page - 1)}
+      >
+        <IconChevronLeft />
+      </IconButton>
+      <span className="min-w-[3.5rem] text-center tabular-nums">
+        {page} / {pages}
+      </span>
+      <IconButton
+        label="下一頁"
+        size="sm"
+        disabled={page >= pages}
+        onClick={() => onPageChange(page + 1)}
+      >
+        <IconChevronRight />
+      </IconButton>
+    </nav>
+  );
+}
 
 export function ListToolbar({
   query,
@@ -66,29 +105,7 @@ export function ListToolbar({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
         <span>{listRangeLabel(page, pageSize, filteredCount, totalCount)}</span>
-        {pages > 1 ? (
-          <nav className="flex items-center gap-2" aria-label="列表分頁">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => onPageChange(page - 1)}
-              className="btn-secondary px-2 py-1 text-xs disabled:opacity-50"
-            >
-              上一頁
-            </button>
-            <span className="tabular-nums">
-              {page} / {pages}
-            </span>
-            <button
-              type="button"
-              disabled={page >= pages}
-              onClick={() => onPageChange(page + 1)}
-              className="btn-secondary px-2 py-1 text-xs disabled:opacity-50"
-            >
-              下一頁
-            </button>
-          </nav>
-        ) : null}
+        <PaginationNav page={page} pages={pages} onPageChange={onPageChange} />
       </div>
     </div>
   );
@@ -134,29 +151,7 @@ export function ListPageControls({
         </select>
       </label>
       <span>{listRangeLabel(page, pageSize, filteredCount, totalCount)}</span>
-      {pages > 1 ? (
-        <nav className="flex items-center gap-2" aria-label="列表分頁">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
-            className="btn-secondary px-2 py-1 text-xs disabled:opacity-50"
-          >
-            上一頁
-          </button>
-          <span className="tabular-nums">
-            {page} / {pages}
-          </span>
-          <button
-            type="button"
-            disabled={page >= pages}
-            onClick={() => onPageChange(page + 1)}
-            className="btn-secondary px-2 py-1 text-xs disabled:opacity-50"
-          >
-            下一頁
-          </button>
-        </nav>
-      ) : null}
+      <PaginationNav page={page} pages={pages} onPageChange={onPageChange} />
     </div>
   );
 }

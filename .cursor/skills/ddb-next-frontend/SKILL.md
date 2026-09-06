@@ -14,8 +14,10 @@ This repo is **Next.js App Router** (`src/app`) + **Tailwind v4**. Dev server is
 Follow **ADR-0089** and always-on rule `.cursor/rules/ddb-cathedral-ui.mdc`:
 
 - Always-dark cathedral shell: black / cold silver / wine red; nun–church as metaphor only.
-- Ornaments (pointed arch, tracery, stained-glass bands) on **shell** only; tables/forms stay rectangular and scannable.
-- Display serif + UI/table sans; sharp corners; restrained motion; no neon glow / fog loops.
+- Shell ornaments: flat **brand-rule** hairlines + quiet corner ticks on dialogs; **no pointed arch SVG** / decorative PNGs; tables/forms stay rectangular.
+- Type scale: page titles ~`1.25rem` (`.page-title`); avoid `text-3xl+` on tool pages; display serif + UI/table sans; sharp corners; restrained motion.
+- Period switcher: thin 1px frame, single-line label; align period bar and main to the same `max-w-6xl` + horizontal padding.
+- Chrome actions (個人檔案、登出、選單、關閉、分頁、換月、列編輯) use **icon buttons** (`IconButton` + `ui-icons.tsx`) with `aria-label`／`title`; keep text on primary form CTAs (儲存、認列…).
 - Same skin for login, Admin, Supervisor, and personal (personal only sees less data).
 - Settings edits: **dialog popout**, not long `<details>` expanders.
 

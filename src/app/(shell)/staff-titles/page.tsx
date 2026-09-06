@@ -24,7 +24,7 @@ export default async function StaffTitlesPage() {
   const isAdmin = session?.user?.role === "ADMIN";
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="職稱標籤"
         description="僅供篩選與對表，不驅動薪資公式。"

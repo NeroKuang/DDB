@@ -2,8 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { DialogShellChrome } from "@/components/cathedral-ornament";
+import { DialogCloseButton } from "@/components/dialog-close-button";
+import { IconButton } from "@/components/icon-button";
 import { ListToolbar } from "@/components/list-toolbar";
 import { useClientList } from "@/components/use-client-list";
+import { IconEye, IconSettings } from "@/components/ui-icons";
 import {
   savePeriodStaffAction,
   type PeriodStaffActionState,
@@ -332,6 +336,10 @@ function PeriodStaffEditForm({
   );
 }
 
+function periodStaffKindLabel(kind: PeriodStaffRecord["kind"]): string {
+  return kind === "guest" ? "客座店員" : "一般店員";
+}
+
 function PeriodStaffRow({
   record,
   locked,
@@ -348,20 +356,19 @@ function PeriodStaffRow({
       <td className="py-2 pr-3">
         <span className="font-medium">{record.primaryNickname}</span>
         {record.legalName ? (
-          <span className="text-zinc-500">（{record.legalName}）</span>
+          <span className="text-muted">（{record.legalName}）</span>
         ) : null}
       </td>
-      <td className="py-2 pr-3 text-xs text-zinc-500">
+      <td className="py-2 pr-3 text-sm text-muted">
+        {periodStaffKindLabel(record.kind)}
+      </td>
+      <td className="py-2 pr-3 text-xs text-muted">
         {bits.length > 0 ? bits.join(" · ") : "—"}
       </td>
       <td className="py-2 text-right">
-        <button
-          type="button"
-          onClick={onOpen}
-          className="text-sm underline underline-offset-2"
-        >
-          {locked ? "查看" : "設定"}
-        </button>
+        <IconButton label={locked ? "查看" : "設定"} size="sm" onClick={onOpen}>
+          {locked ? <IconEye /> : <IconSettings />}
+        </IconButton>
       </td>
     </tr>
   );
@@ -412,25 +419,20 @@ function PeriodStaffDialog({
       onClose={onClose}
       aria-labelledby={titleId}
     >
-      <div className="space-y-4">
+      <DialogShellChrome>
         <header className="flex items-start justify-between gap-3">
           <div>
-            <h2 id={titleId} className="text-lg font-semibold">
+            <h2 id={titleId} className="section-title font-display">
               本期店員設定
             </h2>
-            <p className="text-sm text-zinc-500">
+            <p className="mt-1.5 text-sm text-muted">
               {record.primaryNickname}
               {record.legalName ? `（${record.legalName}）` : ""}
+              {" · "}
+              {periodStaffKindLabel(record.kind)}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-secondary px-2 py-1 text-xs"
-            aria-label="關閉"
-          >
-            關閉
-          </button>
+          <DialogCloseButton onClick={onClose} />
         </header>
         <PeriodStaffEditForm
           storeId={storeId}
@@ -440,13 +442,17 @@ function PeriodStaffDialog({
           formKey={open ? `open-${record.staffId}` : `closed-${record.staffId}`}
           onSaved={onClose}
         />
-      </div>
+      </DialogShellChrome>
     </dialog>
   );
 }
 
 function periodStaffHaystack(record: PeriodStaffRecord): string {
-  return [record.primaryNickname, record.legalName].join(" ");
+  return [
+    record.primaryNickname,
+    record.legalName,
+    periodStaffKindLabel(record.kind),
+  ].join(" ");
 }
 
 export function PeriodStaffPanel({
@@ -509,7 +515,7 @@ function PeriodStaffPanelInner({
             query={list.query}
             onQueryChange={list.setQuery}
             searchLabel="搜尋店員"
-            searchPlaceholder="暱稱、本名、職稱"
+            searchPlaceholder="暱稱、本名、一般／客座"
             pageSize={list.pageSize}
             onPageSizeChange={list.setPageSize}
             page={list.page}
@@ -526,6 +532,7 @@ function PeriodStaffPanelInner({
                 <thead>
                   <tr className="border-b border-zinc-300 dark:border-zinc-700">
                     <th className="py-2 pr-3 font-medium">店員</th>
+                    <th className="py-2 pr-3 font-medium">類型</th>
                     <th className="py-2 pr-3 font-medium">摘要</th>
                     <th className="py-2 text-right font-medium">操作</th>
                   </tr>

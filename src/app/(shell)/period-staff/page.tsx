@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { PeriodStaffPanel } from "@/components/period-staff-panels";
+import { UiHint } from "@/components/ui-hint";
 import { authOptions } from "@/lib/auth-options";
 import { periodKeyDisplayLabel } from "@/lib/pay-period-calendar";
 import { resolvePeriodKey } from "@/lib/resolve-period-key";
@@ -37,11 +38,14 @@ export default async function PeriodStaffPage({ searchParams }: PageProps) {
   const records = await listPeriodStaffForStore(store.id, periodKey);
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="本期店員設定"
         description={`${periodKeyDisplayLabel(periodKey)} 中山${locked ? "（已鎖定）" : ""}`}
       />
+      <UiHint>
+        點「設定」開啟 popout 編輯場別／時數／手填；儲存後到薪資報表確認數字。
+      </UiHint>
       <PeriodStaffPanel
         storeId={store.id}
         periodKey={periodKey}

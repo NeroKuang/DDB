@@ -62,7 +62,7 @@ export default async function PosItemsPage({ searchParams }: PageProps) {
   const health = analyzePosItemHealth(items);
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="品項管理"
         description={`門市：${store.name}。品項名稱自 iCHEF 注記明細自動偵測；POS 售價在此維護，供業績面注記列表使用。`}

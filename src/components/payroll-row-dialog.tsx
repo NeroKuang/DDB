@@ -11,6 +11,8 @@ import {
   staffKindLabel,
   venueLabel,
 } from "@/components/payroll-format";
+import { DialogShellChrome } from "@/components/cathedral-ornament";
+import { DialogCloseButton } from "@/components/dialog-close-button";
 import {
   savePayRowStoredAction,
   type PayRowStoredActionState,
@@ -224,25 +226,21 @@ export function PayRowDialog({
       onClose={onClose}
       aria-labelledby="payroll-dialog-title"
     >
-      <div className="space-y-4">
+      <DialogShellChrome>
         <header className="flex items-start justify-between gap-3">
           <div>
-            <h2 id="payroll-dialog-title" className="font-display text-xl">
+            <h2
+              id="payroll-dialog-title"
+              className="section-title font-display"
+            >
               {row.primaryNickname}
             </h2>
-            <p className="text-sm text-muted">
+            <p className="mt-1 text-sm text-muted">
               {row.legalName || "—"} · {row.title || "—"} ·{" "}
               {venueLabel(row.venue)} · {staffKindLabel(row.kind)}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-secondary px-2 py-1 text-xs"
-            aria-label="關閉"
-          >
-            關閉
-          </button>
+          <DialogCloseButton onClick={onClose} />
         </header>
 
         {editable ? (
@@ -278,7 +276,7 @@ export function PayRowDialog({
             )}
           </div>
         )}
-      </div>
+      </DialogShellChrome>
     </dialog>
   );
 }

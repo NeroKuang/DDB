@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { IconButton } from "@/components/icon-button";
 import type { PeriodOption } from "@/pay-period/list-period-options";
+import { IconChevronLeft, IconChevronRight } from "@/components/ui-icons";
 
 function monthShortLabel(periodKey: string): string {
   const month = Number(periodKey.slice(5, 7));
@@ -34,12 +36,12 @@ function PeriodStatusBadges({
   return (
     <span className={`flex flex-wrap gap-1 ${textClass}`}>
       {option.locked ? (
-        <span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] bg-[color-mix(in_srgb,var(--accent-soft)_80%,var(--surface))] px-1.5 py-px font-medium text-[var(--accent)]">
+        <span className="border border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] bg-[color-mix(in_srgb,var(--accent-soft)_80%,var(--surface))] px-1.5 py-px font-medium text-[var(--accent)]">
           已鎖
         </span>
       ) : null}
       {option.hasImport ? (
-        <span className="rounded-full border border-[color-mix(in_srgb,var(--success)_35%,var(--border))] bg-[color-mix(in_srgb,var(--success)_10%,var(--surface))] px-1.5 py-px font-medium text-[var(--success)]">
+        <span className="border border-[color-mix(in_srgb,var(--success)_35%,var(--border))] bg-[color-mix(in_srgb,var(--success)_10%,var(--surface))] px-1.5 py-px font-medium text-[var(--success)]">
           有匯入
         </span>
       ) : null}
@@ -102,30 +104,27 @@ export function PeriodPicker({
   return (
     <div
       ref={rootRef}
-      className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3"
+      className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2"
     >
       <nav
-        className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2"
+        className="flex min-w-0 flex-1 items-center gap-1"
         aria-label="薪資期間"
       >
-        <button
-          type="button"
+        <IconButton
+          label="上一期（較早月份）"
+          size="sm"
+          className="shrink-0"
           disabled={!canGoOlder}
           onClick={() => {
             if (canGoOlder) {
               pick(options[selectedIndex + 1].periodKey);
             }
           }}
-          className="btn-secondary shrink-0 px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 sm:px-2.5"
-          aria-label="上一期（較早月份）"
         >
-          <span aria-hidden className="text-base leading-none">
-            ‹
-          </span>
-          <span className="hidden sm:inline sm:ml-0.5">較早</span>
-        </button>
+          <IconChevronLeft />
+        </IconButton>
 
-        <div className="relative min-w-0 flex-1 sm:flex-none">
+        <div className="relative min-w-0 flex-1 sm:flex-none sm:max-w-xs">
           <button
             type="button"
             id={`${panelId}-trigger`}
@@ -133,19 +132,17 @@ export function PeriodPicker({
             aria-controls={panelId}
             aria-haspopup="listbox"
             onClick={() => setOpen((value) => !value)}
-            className="flex w-full min-w-[10rem] items-center justify-between gap-2 rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left shadow-[0_1px_2px_color-mix(in_srgb,var(--foreground)_5%,transparent)] transition hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] sm:min-w-[13rem]"
+            className="flex w-full min-w-0 items-center justify-between gap-2 border border-[color-mix(in_srgb,var(--silver)_22%,var(--border))] bg-[var(--surface)] px-2.5 py-1 text-left transition hover:border-[color-mix(in_srgb,var(--accent)_30%,var(--border))]"
           >
-            <span className="min-w-0">
-              <span className="block font-display text-sm font-semibold tracking-wide sm:text-base">
-                {selected.label}
-              </span>
-              <span className="block text-[0.6875rem] text-muted tabular-nums">
+            <span className="min-w-0 truncate text-sm tabular-nums">
+              <span className="font-medium">{selected.label}</span>
+              <span className="ml-2 text-xs text-muted">
                 {selected.periodKey}
               </span>
             </span>
             <span
               aria-hidden
-              className={`shrink-0 text-muted transition ${open ? "rotate-180" : ""}`}
+              className={`shrink-0 text-xs text-muted transition ${open ? "rotate-180" : ""}`}
             >
               ▾
             </span>
@@ -157,14 +154,14 @@ export function PeriodPicker({
               role="listbox"
               aria-labelledby={`${panelId}-trigger`}
               aria-label="選擇薪資期間"
-              className="period-picker-panel absolute top-[calc(100%+0.5rem)] left-0 z-50 max-h-[min(60vh,22rem)] w-[min(calc(100vw-2rem),26rem)] overflow-y-auto p-3 sm:left-1/2 sm:w-[26rem] sm:-translate-x-1/2"
+              className="period-picker-panel absolute top-[calc(100%+0.375rem)] left-0 z-50 max-h-[min(60vh,22rem)] w-[min(calc(100vw-2rem),24rem)] overflow-y-auto p-2.5 sm:left-0 sm:w-[24rem]"
             >
               {groupedYears.map(({ year, options: yearOptions }, index) => (
-                <section key={year} className={index > 0 ? "mt-4" : undefined}>
-                  <h3 className="mb-2 px-1 font-display text-xs font-semibold tracking-wider text-muted uppercase">
+                <section key={year} className={index > 0 ? "mt-3" : undefined}>
+                  <h3 className="mb-1.5 px-1 text-[0.6875rem] font-medium tracking-wide text-muted">
                     {year} 年
                   </h3>
-                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                  <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
                     {yearOptions.map((option) => {
                       const active = option.periodKey === selectedKey;
                       return (
@@ -174,14 +171,14 @@ export function PeriodPicker({
                           role="option"
                           aria-selected={active}
                           onClick={() => pick(option.periodKey)}
-                          className={`rounded border px-2 py-2 text-left transition ${
+                          className={`border px-2 py-1.5 text-left transition ${
                             active
-                              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent-soft)_75%,var(--surface))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_25%,transparent)]"
-                              : "border-transparent bg-[color-mix(in_srgb,var(--surface-muted)_35%,var(--surface))] hover:border-[var(--border)] hover:bg-[var(--surface-muted)]"
+                              ? "border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] bg-[color-mix(in_srgb,var(--accent-soft)_55%,var(--surface))]"
+                              : "border-transparent bg-[color-mix(in_srgb,var(--surface-muted)_30%,var(--surface))] hover:border-[var(--border)]"
                           }`}
                         >
                           <span
-                            className={`block text-sm tabular-nums ${active ? "font-semibold text-[var(--accent)]" : ""}`}
+                            className={`block text-sm tabular-nums ${active ? "font-medium text-[var(--accent)]" : ""}`}
                           >
                             {monthShortLabel(option.periodKey)}
                           </span>
@@ -200,43 +197,26 @@ export function PeriodPicker({
           ) : null}
         </div>
 
-        <button
-          type="button"
+        <IconButton
+          label="下一期（較新月份）"
+          size="sm"
+          className="shrink-0"
           disabled={!canGoNewer}
           onClick={() => {
             if (canGoNewer) {
               pick(options[selectedIndex - 1].periodKey);
             }
           }}
-          className="btn-secondary shrink-0 px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 sm:px-2.5"
-          aria-label="下一期（較新月份）"
         >
-          <span className="hidden sm:inline sm:mr-0.5">較新</span>
-          <span aria-hidden className="text-base leading-none">
-            ›
-          </span>
-        </button>
+          <IconChevronRight />
+        </IconButton>
       </nav>
 
-      <div
-        className="flex shrink-0 items-center gap-2 sm:hidden"
-        aria-live="polite"
-      >
+      <div className="shrink-0 text-xs text-muted" aria-live="polite">
         {selected.locked || selected.hasImport ? (
           <PeriodStatusBadges option={selected} />
         ) : (
-          <span className="text-xs text-muted">尚未鎖定 · 無匯入</span>
-        )}
-      </div>
-
-      <div
-        className="hidden shrink-0 items-center gap-2 sm:flex"
-        aria-live="polite"
-      >
-        {selected.locked || selected.hasImport ? (
-          <PeriodStatusBadges option={selected} />
-        ) : (
-          <span className="text-xs text-muted">尚未鎖定 · 無匯入</span>
+          <span>尚未鎖定 · 無匯入</span>
         )}
       </div>
     </div>
@@ -246,12 +226,12 @@ export function PeriodPicker({
 export function PeriodPickerFallback() {
   return (
     <div
-      className="flex min-w-0 flex-1 animate-pulse items-center gap-2"
+      className="flex min-w-0 flex-1 animate-pulse items-center gap-1"
       aria-hidden
     >
-      <div className="h-9 w-14 rounded bg-[var(--surface-muted)]" />
-      <div className="h-11 min-w-[13rem] flex-1 rounded bg-[var(--surface-muted)] sm:flex-none" />
-      <div className="h-9 w-14 rounded bg-[var(--surface-muted)]" />
+      <div className="h-7 w-10 bg-[var(--surface-muted)]" />
+      <div className="h-7 min-w-[12rem] flex-1 bg-[var(--surface-muted)] sm:flex-none sm:max-w-xs" />
+      <div className="h-7 w-10 bg-[var(--surface-muted)]" />
     </div>
   );
 }

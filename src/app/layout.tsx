@@ -20,8 +20,8 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "DDB 業績補償",
-  description: "iCHEF 之上的薪資報表編成與業績核對",
+  title: "DDB 薪資與業績",
+  description: "店家算薪水、公布業績；店員查看自己的數字（iCHEF 之上）",
 };
 
 export default function RootLayout({
@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-Hant"
-      className={`${geistSans.variable} ${geistMono.variable} ${cormorant.variable} h-full antialiased`}
+      className={`dark ${geistSans.variable} ${geistMono.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="app-body flex min-h-full flex-col">
         <Providers>{children}</Providers>

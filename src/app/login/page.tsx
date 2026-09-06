@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { seedAdminIfEmpty } from "@/auth/accounts";
+import { FrameCornerTicks } from "@/components/cathedral-ornament";
 import { LoginForm } from "@/components/login-form";
 import { authOptions } from "@/lib/auth-options";
 
@@ -31,21 +32,24 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-6 px-6 py-16">
-      <div className="space-y-2 text-center">
-        <p className="font-display text-xs tracking-[0.35em] text-[var(--gothic-gold)] uppercase">
+    <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center gap-5 px-6 py-14">
+      <div className="sidebar-brand space-y-2 px-5 py-6 text-center">
+        <p className="font-display text-[0.6875rem] tracking-[0.28em] text-[var(--silver)] uppercase">
           DDB
         </p>
-        <h1 className="font-display text-3xl font-semibold tracking-wide">
-          業績補償
-        </h1>
+        <h1 className="page-title">薪資與業績</h1>
         <hr className="brand-rule" />
-        <p className="text-sm text-muted">使用自訂帳號與密碼。不公開註冊。</p>
+        <p className="text-sm text-muted">
+          店家算薪水、公布業績；店員登入查看自己的數字。
+        </p>
       </div>
       <div className="login-panel">
-        <Suspense fallback={<p className="text-sm text-muted">載入中…</p>}>
-          <LoginForm />
-        </Suspense>
+        <FrameCornerTicks />
+        <div className="relative z-[1]">
+          <Suspense fallback={<p className="text-sm text-muted">載入中…</p>}>
+            <LoginForm />
+          </Suspense>
+        </div>
       </div>
     </main>
   );

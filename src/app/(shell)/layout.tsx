@@ -41,7 +41,7 @@ export default async function ShellLayout({
       periodOptions={periodOptions}
       currentPeriodKey={currentPeriodKey}
     >
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="ui-enter mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         {children}
       </main>
     </AppShell>

@@ -33,7 +33,7 @@ export default async function TemplateTasksPage() {
   const isAdmin = session?.user?.role === "ADMIN";
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="模板任務"
         description={`門市：${store.name}。綁定 iCHEF 注記品項；單筆與任務達標可並行。任務達標為累加制（達門檻加發該階，多階加總，不是只領最高階）。未綁定的點選獎金為 0。`}

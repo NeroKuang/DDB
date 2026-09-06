@@ -16,7 +16,7 @@ export default async function AccountsPage() {
   const users = isAdmin ? await listAccounts() : [];
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader title="帳號管理" />
       <ChangeOwnPasswordForm />
       {isAdmin ? (

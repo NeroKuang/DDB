@@ -49,7 +49,7 @@ export default async function AdHocTasksPage({ searchParams }: PageProps) {
   const isAdmin = session?.user?.role === "ADMIN";
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="追加任務"
         description={`門市：${store.name}（${periodKeyDisplayLabel(periodKey)}）。用名稱描述老闆本期其他需求；填儲存值並確認派發後才計入任務獎金。模板任務仍依點選自動計算。客座也可指定。`}

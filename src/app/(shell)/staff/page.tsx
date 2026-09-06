@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { StaffCreateForm, StaffSummaryTable } from "@/components/staff-panels";
+import { UiHint } from "@/components/ui-hint";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePeriodKey } from "@/lib/resolve-period-key";
 import { listPeriodOptions } from "@/pay-period/list-period-options";
@@ -48,6 +49,9 @@ export default async function StaffListPage({ searchParams }: PageProps) {
         title="店員主檔"
         description={`門市：${store.name}。維護本名、暱稱、別名、聯絡電話與薪資欄位；一般店員可開 personal 帳號；客座須指定僅出現的薪資期間。`}
       />
+      <UiHint>
+        列表按「編輯」開 popout 快速改主檔；需要 personal 帳號時進「完整編輯」。
+      </UiHint>
       {isAdmin ? (
         <StoreCommissionDefaultPanel
           storeId={store.id}

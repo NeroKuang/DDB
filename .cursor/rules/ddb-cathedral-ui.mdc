@@ -9,9 +9,10 @@ alwaysApply: true
 
 ## 品牌方向
 
-- **永遠暗色**：黑底＋冷銀邊／字階＋酒紅 accent。不維護 parchment 亮色主線；勿用系統亮色當預設皮。
+- **永遠暗色**：黑底＋冷銀邊／字階＋酒紅 accent。`<html class="dark">` 強制；不維護 parchment 亮色主線。
+- **實作錨點 A+C**：聖堂尖拱殼（designmd Gothic）＋黑／酒紅工具感 token（vibe Gothic Architecture）；表格仍矩形。
 - **隱喻**：修女／教堂是氣氛與結構（肅穆、垂直、儀式感容器），**不出現**寫實修女、聖像、十字架吉祥物。
-- **強度**：殼層可明顯尖拱／tracery／彩窗色帶；**表格與表單本體保持矩形銀線**，可掃讀優先。
+- **強度**：殼層用**平直髮絲分隔線（`.brand-rule`）＋細銀角飾**；**禁止**尖拱／山形 SVG、位圖裝飾 PNG、粗框換月器；大範圍線條左緣須與內容欄（`max-w-6xl`）對齊；**表格與表單本體保持矩形銀線**，可掃讀優先。
 
 ## 色與型
 
@@ -26,6 +27,7 @@ alwaysApply: true
 ## 字體
 
 - **Display 襯線**：頁標題、品牌、dialog 標題（非 blackletter 內文）。
+- **階距緊**：頁標題約 `text-xl`～`text-2xl`（`--text-display: 1.25rem`）；內文 `text-sm`／`0.875rem`；勿用 `text-3xl+` 當工具頁主標。
 - **Sans**：導覽、表單、表格、數字；金額用 tabular nums。
 - 禁止：大面積 blackletter 當導覽或表內文字。
 

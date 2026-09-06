@@ -4,10 +4,8 @@ import { isBenignStreamAbortError } from "@/lib/benign-stream-abort";
 
 /**
  * Demote known Next 16.3 client-abort RSC noise; real failures still go to
- * logServerError (Zeabur Runtime Logs JSON).
- *
- * Note: Next may still print its own `⨯ Error: …` line before this hook runs.
- * Treat that alone as noise; take-number failures show as runWebFetchJob JSON.
+ * structured logs. Avoid importing server-only/fs modules here — this file
+ * can load in the Edge instrumentation graph.
  */
 export const onRequestError: Instrumentation.onRequestError = async (
   error,
@@ -28,10 +26,20 @@ export const onRequestError: Instrumentation.onRequestError = async (
     return;
   }
 
-  const { logServerError } = await import("@/lib/log-server-error");
-  logServerError("next-onRequestError", error, {
-    routePath: context.routePath,
-    routeType: context.routeType,
-    routerKind: context.routerKind,
-  });
+  const message = error instanceof Error ? error.message : String(error);
+  const name = error instanceof Error ? error.name : "NonError";
+  console.error(
+    JSON.stringify({
+      level: "error",
+      context: "next-onRequestError",
+      name,
+      message,
+      meta: {
+        routePath: context.routePath,
+        routeType: context.routeType,
+        routerKind: context.routerKind,
+      },
+      at: new Date().toISOString(),
+    })
+  );
 };

@@ -2,7 +2,8 @@
 
 import { Suspense, useState } from "react";
 import type { AccountRole } from "@prisma/client";
-import { AppSidebar, MobileNavBar } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import { ShellTopBar } from "@/components/shell-account-menu";
 import { ShellPeriodBar } from "@/components/shell-period-bar";
 import type { PeriodOption } from "@/pay-period/list-period-options";
 
@@ -38,14 +39,17 @@ export function AppShell({
       <Suspense fallback={null}>
         <AppSidebar
           role={role}
-          username={username}
-          primaryNickname={primaryNickname}
           mobileOpen={mobileOpen}
           onNavigate={() => setMobileOpen(false)}
         />
       </Suspense>
       <div className="flex min-w-0 flex-1 flex-col">
-        <MobileNavBar onOpenMenu={() => setMobileOpen(true)} />
+        <ShellTopBar
+          username={username}
+          role={role}
+          primaryNickname={primaryNickname}
+          onOpenMenu={() => setMobileOpen(true)}
+        />
         {showPeriodBar ? (
           <ShellPeriodBar
             options={periodOptions}

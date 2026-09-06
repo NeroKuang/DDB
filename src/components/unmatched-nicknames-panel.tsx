@@ -18,6 +18,12 @@ import type { UnmatchedNicknameResolutionKind } from "@prisma/client";
 
 const initial: UnmatchedNicknameActionState = { ok: false, message: "" };
 
+export type UnmatchedStaffOption = {
+  id: string;
+  label: string;
+  kind: "regular" | "guest";
+};
+
 export type UnmatchedResolutionDisplay = {
   nickname: string;
   kind: UnmatchedNicknameResolutionKind;
@@ -29,6 +35,46 @@ function resolutionLabel(row: UnmatchedResolutionDisplay): string {
     return `本期認列 → ${row.targetPrimaryNickname ?? "—"}`;
   }
   return `本期客座建檔 → ${row.targetPrimaryNickname ?? "—"}`;
+}
+
+function StaffAttributeSelect({
+  staffOptions,
+}: {
+  staffOptions: UnmatchedStaffOption[];
+}) {
+  const guests = staffOptions.filter((option) => option.kind === "guest");
+  const regulars = staffOptions.filter((option) => option.kind === "regular");
+
+  return (
+    <select
+      name="targetStaffId"
+      required
+      className="field-input min-w-[8rem] py-1 text-sm"
+      defaultValue=""
+    >
+      <option value="" disabled>
+        選擇店員
+      </option>
+      {guests.length > 0 ? (
+        <optgroup label="客座店員">
+          {guests.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </optgroup>
+      ) : null}
+      {regulars.length > 0 ? (
+        <optgroup label="一般店員">
+          {regulars.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </optgroup>
+      ) : null}
+    </select>
+  );
 }
 
 export function UnmatchedNicknamesPanel({
@@ -46,7 +92,7 @@ export function UnmatchedNicknamesPanel({
   unmatchedNicknames: UnmatchedNicknameRow[];
   adminSkippedNicknames: string[];
   resolutions: UnmatchedResolutionDisplay[];
-  staffOptions: { id: string; label: string }[];
+  staffOptions: UnmatchedStaffOption[];
   locked: boolean;
   isAdmin: boolean;
 }) {
@@ -159,7 +205,7 @@ export function UnmatchedNicknamesPanel({
         <section className="alert-banner alert-warning space-y-2 p-4">
           <h2 className="text-base font-medium">未對上的暱稱（阻擋鎖定）</h2>
           <p className="text-xs opacity-80">
-            來自結帳業績注記。可「認列本期」給既有店員、「本期建檔」為客座，或略過鎖定檢查。
+            來自結帳業績注記。可「認列本期」給既有店員（含本期客座）、「本期建檔」為客座，或略過鎖定檢查。
           </p>
           <ul className="space-y-3 text-sm">
             {blocking.map((item) => (
@@ -182,21 +228,7 @@ export function UnmatchedNicknamesPanel({
                       />
                       <label className="flex flex-col gap-0.5 text-xs">
                         <span className="text-muted">認列本期</span>
-                        <select
-                          name="targetStaffId"
-                          required
-                          className="field-input min-w-[8rem] py-1 text-sm"
-                          defaultValue=""
-                        >
-                          <option value="" disabled>
-                            選擇店員
-                          </option>
-                          {staffOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                        <StaffAttributeSelect staffOptions={staffOptions} />
                       </label>
                       <button
                         type="submit"

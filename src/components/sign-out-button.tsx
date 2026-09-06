@@ -2,15 +2,17 @@
 
 import { signOut } from "next-auth/react";
 import { useState } from "react";
+import { IconButton } from "@/components/icon-button";
+import { IconLogout } from "@/components/ui-icons";
 
 type SignOutButtonProps = {
-  variant?: "sidebar" | "toolbar";
   className?: string;
+  size?: "sm" | "md";
 };
 
 export function SignOutButton({
-  variant = "sidebar",
   className = "",
+  size = "md",
 }: SignOutButtonProps) {
   const [pending, setPending] = useState(false);
 
@@ -23,37 +25,15 @@ export function SignOutButton({
     }
   }
 
-  const base =
-    variant === "toolbar"
-      ? "btn-secondary px-3 py-1.5 text-sm"
-      : "w-full rounded border border-[color-mix(in_srgb,var(--sidebar-fg)_35%,transparent)] bg-[color-mix(in_srgb,var(--sidebar-fg)_8%,var(--sidebar))] px-3 py-2 text-sm text-[var(--sidebar-fg)] hover:bg-[color-mix(in_srgb,var(--sidebar-fg)_14%,var(--sidebar))] disabled:opacity-60";
-
   return (
-    <button
-      type="button"
+    <IconButton
+      label={pending ? "登出中…" : "登出"}
+      size={size}
+      disabled={pending}
+      className={className}
       onClick={() => void handleSignOut()}
-      disabled={pending}
-      className={`${base} ${className}`.trim()}
     >
-      {pending ? "登出中…" : "登出"}
-    </button>
-  );
-}
-
-export function SignOutLink({ className = "" }: { className?: string }) {
-  const [pending, setPending] = useState(false);
-
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={() => {
-        setPending(true);
-        void signOut({ callbackUrl: "/login", redirect: true });
-      }}
-      className={`text-xs underline underline-offset-2 text-[var(--sidebar-muted)] hover:text-[var(--sidebar-fg)] disabled:opacity-60 ${className}`.trim()}
-    >
-      {pending ? "登出中…" : "登出"}
-    </button>
+      <IconLogout />
+    </IconButton>
   );
 }

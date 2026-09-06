@@ -16,6 +16,8 @@ export type PeriodStaffRecord = {
   staffId: string;
   primaryNickname: string;
   legalName: string;
+  /** Glossary: 一般店員 | 客座店員 */
+  kind: "regular" | "guest";
   laborHealthInsuranceCarryOverMonthly: boolean;
   settings: PeriodStaffSettingsJson;
 };
@@ -53,6 +55,7 @@ async function loadStaffSettingsForPeriod(
     id: string;
     primaryNickname: string;
     legalName: string;
+    kind: "REGULAR" | "GUEST";
     laborHealthInsuranceCarryOverMonthly: boolean;
   }>;
   settingsByStaffId: Map<string, PeriodStaffSettingsJson>;
@@ -64,6 +67,7 @@ async function loadStaffSettingsForPeriod(
       id: true,
       primaryNickname: true,
       legalName: true,
+      kind: true,
       laborHealthInsuranceCarryOverMonthly: true,
     },
   });
@@ -147,6 +151,7 @@ export async function listPeriodStaffForStore(
     staffId: person.id,
     primaryNickname: person.primaryNickname,
     legalName: person.legalName,
+    kind: person.kind === "GUEST" ? "guest" : "regular",
     laborHealthInsuranceCarryOverMonthly:
       person.laborHealthInsuranceCarryOverMonthly,
     settings: settingsForStaff(person.id, settingsByStaffId),
@@ -196,6 +201,7 @@ export async function upsertPeriodStaffSetting(input: {
     staffId: staff.id,
     primaryNickname: staff.primaryNickname,
     legalName: staff.legalName,
+    kind: staff.kind === "GUEST" ? "guest" : "regular",
     laborHealthInsuranceCarryOverMonthly:
       staff.laborHealthInsuranceCarryOverMonthly,
     settings: parseSettingsJson(row.settingsJson),

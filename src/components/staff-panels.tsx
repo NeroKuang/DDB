@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { DialogShellChrome } from "@/components/cathedral-ornament";
+import { DialogCloseButton } from "@/components/dialog-close-button";
+import { IconButton } from "@/components/icon-button";
 import { ListToolbar } from "@/components/list-toolbar";
 import { useClientList } from "@/components/use-client-list";
+import { IconPencil } from "@/components/ui-icons";
 import {
   createStaffAction,
   openPersonalAccountAction,
@@ -498,22 +502,17 @@ export function StaffCreateForm({
         onClose={() => setOpen(false)}
         aria-labelledby="staff-create-dialog-title"
       >
-        <div className="space-y-4">
+        <DialogShellChrome>
           <header className="flex items-start justify-between gap-3">
-            <h2
-              id="staff-create-dialog-title"
-              className="text-lg font-semibold"
-            >
-              新增店員
-            </h2>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="btn-secondary px-2 py-1 text-xs"
-              aria-label="關閉"
-            >
-              關閉
-            </button>
+            <div>
+              <h2
+                id="staff-create-dialog-title"
+                className="section-title font-display"
+              >
+                新增店員
+              </h2>
+            </div>
+            <DialogCloseButton onClick={() => setOpen(false)} />
           </header>
           <form
             key={open ? "open" : "closed"}
@@ -544,7 +543,7 @@ export function StaffCreateForm({
             </div>
           </form>
           {state.message ? <StatusMessage state={state} /> : null}
-        </div>
+        </DialogShellChrome>
       </dialog>
     </>
   );
@@ -581,7 +580,7 @@ export function StaffEditPanel({
   return (
     <div className="flex flex-col gap-8">
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">編輯店員主檔</h2>
+        <h2 className="section-title font-display">編輯店員主檔</h2>
         <form
           action={saveAction}
           className="grid gap-3 sm:max-w-2xl sm:grid-cols-2"
@@ -608,7 +607,7 @@ export function StaffEditPanel({
 
       {person.kind === "regular" ? (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">personal 帳號</h2>
+          <h2 className="section-title font-display">personal 帳號</h2>
           <p className="text-sm text-zinc-500">
             開帳時登入名預設為聯絡電話（僅數字），初始密碼為電話後四碼。
           </p>
@@ -725,38 +724,27 @@ function StaffInlineEdit({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-sm underline underline-offset-2"
-      >
-        編輯
-      </button>
+      <IconButton label="編輯" size="sm" onClick={() => setOpen(true)}>
+        <IconPencil />
+      </IconButton>
       <dialog
         ref={dialogRef}
         className="payroll-dialog max-w-3xl"
         onClose={() => setOpen(false)}
         aria-labelledby={titleId}
       >
-        <div className="space-y-4">
+        <DialogShellChrome>
           <header className="flex items-start justify-between gap-3">
             <div>
-              <h2 id={titleId} className="text-lg font-semibold">
+              <h2 id={titleId} className="section-title font-display">
                 編輯店員主檔
               </h2>
-              <p className="text-sm text-zinc-500">
+              <p className="mt-1.5 text-sm text-muted">
                 {person.primaryNickname}
                 {person.legalName ? `（${person.legalName}）` : ""}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="btn-secondary px-2 py-1 text-xs"
-              aria-label="關閉"
-            >
-              關閉
-            </button>
+            <DialogCloseButton onClick={() => setOpen(false)} />
           </header>
           <form
             key={open ? `open-${person.id}` : `closed-${person.id}`}
@@ -794,7 +782,7 @@ function StaffInlineEdit({
             </div>
           </form>
           {state.message ? <StatusMessage state={state} /> : null}
-        </div>
+        </DialogShellChrome>
       </dialog>
     </>
   );

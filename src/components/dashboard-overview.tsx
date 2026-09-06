@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PERIOD_QUERY_PARAM } from "@/components/period-selector";
+import { UiHint } from "@/components/ui-hint";
 import type { DashboardAlert } from "@/dashboard/build-alerts";
 import type { PeriodDashboardStatus } from "@/dashboard/load-period-dashboard";
 
@@ -60,8 +61,8 @@ function KpiCard({
           : "";
   return (
     <div className={`kpi-card ${toneClass}`}>
-      <p className="text-xs opacity-70">{label}</p>
-      <p className="mt-1 text-lg font-semibold">{value}</p>
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-1 text-base font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
@@ -78,16 +79,27 @@ export function DashboardOverview({
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="font-display text-3xl font-semibold tracking-wide">
-          中控台
-        </h1>
+      <header className="space-y-1.5">
+        <h1 className="page-title">中控台</h1>
         <hr className="brand-rule" />
         <p className="text-sm text-muted">
           {status.periodLabel ?? status.periodKey}
           {status.locked ? "（已鎖定）" : ""}
         </p>
       </header>
+
+      <UiHint
+        action={
+          <Link
+            href={`/payroll?${PERIOD_QUERY_PARAM}=${status.periodKey}`}
+            className="btn-primary text-xs"
+          >
+            開啟薪資報表
+          </Link>
+        }
+      >
+        先確認網頁取數與必要匯入齊全，再編成薪資、處理未對上。店員端看的是業績面數字。
+      </UiHint>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
@@ -136,9 +148,21 @@ export function DashboardOverview({
         />
       </section>
 
+      {status.unmatchedClickCount > 0 ? (
+        <p className="text-xs text-muted">
+          未對上點選來自注記分析，不擋鎖定。{" "}
+          <Link
+            href={`/payroll?${PERIOD_QUERY_PARAM}=${status.periodKey}#unmatched-clicks`}
+            className="text-link font-medium"
+          >
+            到薪資報表列出全部 →
+          </Link>
+        </p>
+      ) : null}
+
       {status.alerts.length > 0 ? (
         <section className="space-y-3">
-          <h2 className="text-base font-medium">問題與待辦</h2>
+          <h2 className="section-title">問題與待辦</h2>
           <ul className="space-y-2">
             {status.alerts.map((alert) => (
               <li
@@ -205,9 +229,7 @@ export function PersonalDashboardOverview({
     : `/performance?${periodQuery}`;
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-3xl font-semibold tracking-wide">
-        中控台
-      </h1>
+      <h1 className="page-title">中控台</h1>
       <p className="text-sm text-muted">
         個人帳號僅能查看自己的業績面。請用上方選單切換薪資期間。
       </p>

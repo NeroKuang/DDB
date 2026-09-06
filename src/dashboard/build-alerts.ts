@@ -90,8 +90,8 @@ export function buildPeriodDashboardAlerts(input: {
     alerts.push({
       severity: "info",
       title: `${input.unmatchedClickCount} 筆未對上點選`,
-      detail: "不阻擋鎖定，但任務獎金可能漏算",
-      href: "/payroll",
+      detail: "來自注記分析；不擋鎖定。可至薪資報表列出全部。",
+      href: "/payroll#unmatched-clicks",
     });
   }
 

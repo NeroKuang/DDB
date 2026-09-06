@@ -9,6 +9,7 @@ import {
   resolvePayrollStep,
 } from "@/components/payroll-stepper";
 import { RecountPayPeriodPanel } from "@/components/recount-pay-period-panel";
+import { UnmatchedClicksPanel } from "@/components/unmatched-clicks-panel";
 import { UnmatchedNicknamesPanel } from "@/components/unmatched-nicknames-panel";
 import { WebFetchPanel } from "@/components/web-fetch-panel";
 import { getServerSession } from "next-auth";
@@ -66,7 +67,11 @@ export default async function PayrollPage({ searchParams }: PageProps) {
   let unmatchedResolutions: Awaited<
     ReturnType<typeof listUnmatchedResolutions>
   > = [];
-  let attributeStaffOptions: { id: string; label: string }[] = [];
+  let attributeStaffOptions: {
+    id: string;
+    label: string;
+    kind: "regular" | "guest";
+  }[] = [];
 
   const store = await prisma.store.findUnique({
     where: { code: ZHONGSHAN_STORE_CODE },
@@ -137,14 +142,27 @@ export default async function PayrollPage({ searchParams }: PageProps) {
         kind: true,
       },
     });
-    attributeStaffOptions = attributeStaff
-      .filter((person) => person.kind === "REGULAR")
-      .map((person) => ({
-        id: person.id,
-        label: person.legalName
+    attributeStaffOptions = [...attributeStaff]
+      .sort((left, right) => {
+        if (left.kind !== right.kind) {
+          return left.kind === "GUEST" ? -1 : 1;
+        }
+        return left.primaryNickname.localeCompare(
+          right.primaryNickname,
+          "zh-Hant"
+        );
+      })
+      .map((person) => {
+        const base = person.legalName
           ? `${person.primaryNickname}（${person.legalName}）`
-          : person.primaryNickname,
-      }));
+          : person.primaryNickname;
+        return {
+          id: person.id,
+          label: base,
+          kind: (person.kind === "GUEST" ? "guest" : "regular") as
+            "guest" | "regular",
+        };
+      });
   }
 
   try {
@@ -278,24 +296,7 @@ export default async function PayrollPage({ searchParams }: PageProps) {
               isAdmin={isAdmin}
             />
           ) : null}
-          {unmatchedClicks.length > 0 ? (
-            <section className="card-surface space-y-2 p-4">
-              <h2 className="text-base font-medium">未對上的點選</h2>
-              <p className="text-xs opacity-70">來自注記分析；不擋鎖定。</p>
-              <ul className="list-inside list-disc text-sm opacity-80">
-                {unmatchedClicks.slice(0, 40).map((item) => (
-                  <li key={`${item.itemName}-${item.nickname}-${item.clicks}`}>
-                    {item.itemName}／{item.nickname}：{item.clicks} 次
-                  </li>
-                ))}
-              </ul>
-              {unmatchedClicks.length > 40 ? (
-                <p className="text-xs opacity-70">
-                  另有 {unmatchedClicks.length - 40} 筆未列出。
-                </p>
-              ) : null}
-            </section>
-          ) : null}
+          <UnmatchedClicksPanel unmatchedClicks={unmatchedClicks} />
         </>
       )}
     </div>
