@@ -134,7 +134,7 @@ describe("analyzeStaffPerformance", () => {
     expect(view.commission).toEqual({ original: 200, stored: 180 });
   });
 
-  it("puts empty-訂購人 lines in 業績項 but not 客人分析", () => {
+  it("puts empty-訂購人 lines in 業績項 and 銷售統計, not legacy 客人分析-only shape", () => {
     const lines: CheckoutNoteLine[] = [
       {
         nickname: "粉冥",
@@ -172,6 +172,10 @@ describe("analyzeStaffPerformance", () => {
     });
     expect(view.personalSales.original).toBe(1700);
     expect(view.lineItems).toHaveLength(3);
+    expect(view.salesStats).toEqual([
+      { orderer: "", amount: 1000, lineCount: 1 },
+      { orderer: "小美", amount: 700, lineCount: 2 },
+    ]);
     expect(view.guestAnalysis).toEqual([
       { orderer: "小美", amount: 700, lineCount: 2 },
     ]);

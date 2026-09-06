@@ -61,6 +61,7 @@ describe("pay period lock", () => {
             },
           ],
           guestAnalysis: [],
+          salesStats: [],
           noteList: [],
           adHocTasks: [],
           taskBonus: { original: 0, stored: 0 },

@@ -74,7 +74,7 @@ export default async function PerformancePage({ searchParams }: PageProps) {
       <div className="flex flex-col gap-6">
         <PageHeader
           title="業績面"
-          description={`期間：${input.periodLabel}${frozen ? "（已鎖定）" : ""}。依結帳業績注記與注記分析編成。`}
+          description={`期間：${input.periodLabel}${frozen ? "（已鎖定）" : ""}。銷售統計依結帳業績注記；任務／注記點選只列品項名稱。`}
         />
         <PerformanceSummaryTable rows={views} periodKey={periodKey} />
       </div>

@@ -44,12 +44,41 @@ export function parsePeriodSnapshot(raw: string): PeriodSnapshot {
   }
   return {
     ...parsed,
-    performanceSummaries: parsed.performanceSummaries.map((view) => ({
-      ...view,
-      lineItems: view.lineItems.map((item) => ({
+    performanceSummaries: parsed.performanceSummaries.map((view) => {
+      const lineItems = view.lineItems.map((item) => ({
         ...item,
         at: new Date(item.at),
-      })),
-    })),
+      }));
+      const guestAnalysis = view.guestAnalysis ?? [];
+      const salesStats =
+        view.salesStats ??
+        (() => {
+          const map = new Map<
+            string,
+            { orderer: string; amount: number; lineCount: number }
+          >();
+          for (const item of lineItems) {
+            const key = item.orderer;
+            const existing = map.get(key);
+            if (existing) {
+              existing.amount += item.amount;
+              existing.lineCount += 1;
+            } else {
+              map.set(key, {
+                orderer: item.orderer,
+                amount: item.amount,
+                lineCount: 1,
+              });
+            }
+          }
+          return [...map.values()];
+        })();
+      return {
+        ...view,
+        lineItems,
+        guestAnalysis,
+        salesStats,
+      };
+    }),
   };
 }

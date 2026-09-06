@@ -20,11 +20,15 @@ export type PerformanceLineItem = {
   amount: number;
 };
 
-export type GuestAnalysisRow = {
+/** Aggregated checkout 業績注記 by 訂購人（含無訂購人，orderer === ""）. */
+export type SalesStatRow = {
   orderer: string;
   amount: number;
   lineCount: number;
 };
+
+/** @deprecated Prefer SalesStatRow; kept for older call sites. */
+export type GuestAnalysisRow = SalesStatRow;
 
 export type NoteListRow = {
   itemName: string;
@@ -57,7 +61,13 @@ export type StaffPerformanceView = {
   personalSales: MoneyPair;
   commission: MoneyPair;
   lineItems: PerformanceLineItem[];
-  guestAnalysis: GuestAnalysisRow[];
+  /** 銷售統計：依訂購人彙總，含無訂購人. */
+  salesStats: SalesStatRow[];
+  /**
+   * Subset of salesStats with non-empty 訂購人（舊「客人分析」）.
+   * Prefer salesStats on new screens.
+   */
+  guestAnalysis: SalesStatRow[];
   noteList: NoteListRow[];
   adHocTasks: AdHocTaskRow[];
   taskBonus: MoneyPair;
@@ -135,26 +145,31 @@ export function analyzeStaffPerformance(input: {
   }
   lineItems.sort((a, b) => a.at.getTime() - b.at.getTime());
 
-  const guestMap = new Map<string, GuestAnalysisRow>();
+  const salesMap = new Map<string, SalesStatRow>();
   for (const item of lineItems) {
-    if (!item.orderer) {
-      continue;
-    }
-    const existing = guestMap.get(item.orderer);
+    const key = item.orderer;
+    const existing = salesMap.get(key);
     if (existing) {
       existing.amount = roundMoney(existing.amount + item.amount);
       existing.lineCount += 1;
     } else {
-      guestMap.set(item.orderer, {
+      salesMap.set(key, {
         orderer: item.orderer,
         amount: item.amount,
         lineCount: 1,
       });
     }
   }
-  const guestAnalysis = [...guestMap.values()].sort((a, b) =>
-    a.orderer.localeCompare(b.orderer, "zh-Hant")
-  );
+  const salesStats = [...salesMap.values()].sort((a, b) => {
+    if (!a.orderer && b.orderer) {
+      return -1;
+    }
+    if (a.orderer && !b.orderer) {
+      return 1;
+    }
+    return a.orderer.localeCompare(b.orderer, "zh-Hant");
+  });
+  const guestAnalysis = salesStats.filter((row) => row.orderer.length > 0);
 
   const clicksByItem = new Map<string, number>();
   for (const click of noteClicks) {
@@ -229,6 +244,7 @@ export function analyzeStaffPerformance(input: {
     personalSales: pair(personalSalesOriginal, storedOverrides?.personalSales),
     commission: pair(commissionOriginal, storedOverrides?.commission),
     lineItems,
+    salesStats,
     guestAnalysis,
     noteList,
     adHocTasks: adHocForStaff,
