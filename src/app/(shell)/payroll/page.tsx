@@ -26,6 +26,10 @@ import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { staffWhereForPayPeriod } from "@/staff/guest-period";
 import { getWebFetchProgress } from "@/web-fetch/manage";
 import { loadActiveImportSummary } from "@/import/ingest/load-active-import-summary";
+import {
+  flattenStoredOverrides,
+  listPayRowStored,
+} from "@/pay-row-stored/manage";
 
 type PageProps = {
   searchParams: Promise<{ period?: string }>;
@@ -108,6 +112,9 @@ export default async function PayrollPage({ searchParams }: PageProps) {
     : null;
   locked = isPayPeriodLocked(periodState);
   const isAdmin = session?.user?.role === "ADMIN";
+  const storedOverrides = storeId
+    ? flattenStoredOverrides(await listPayRowStored(storeId, periodKey))
+    : [];
   const canViewFetch =
     session?.user?.role === "ADMIN" || session?.user?.role === "SUPERVISOR";
   const fetchProgress =
@@ -269,6 +276,7 @@ export default async function PayrollPage({ searchParams }: PageProps) {
                 periodKey={periodKey}
                 locked={locked}
                 isAdmin={isAdmin}
+                overrides={storedOverrides}
               />
             ) : null}
           </div>

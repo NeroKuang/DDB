@@ -69,39 +69,65 @@ describe("lock guards on payroll-affecting writes", () => {
     staffId = staff.id;
   });
 
-  it("blocks staff update and template task upsert when locked", async () => {
+  it("allows regular staff master update when July locked; still blocks template tasks", async () => {
     await lockJulyPeriod(storeId);
     try {
       const staff = await prisma.staff.findUniqueOrThrow({
         where: { id: staffId },
       });
-      await expect(
-        updateStaff({
-          actorRole: "ADMIN",
-          id: staffId,
-          data: {
-            legalName: staff.legalName,
-            primaryNickname: staff.primaryNickname,
-            contactPhone: staff.contactPhone,
-            aliases: [],
-            title: staff.title,
-            kind: "regular",
-            guestPeriodKey: null,
-            payKind: "hourly",
-            hourlyRate: staff.hourlyRate,
-            monthlyPay: staff.monthlyPay,
-            commissionRate: staff.commissionRate,
-            targetBonusAmount: staff.targetBonusAmount,
-            laborHealthInsuranceAmount: staff.laborHealthInsuranceAmount,
-            laborHealthInsuranceMode:
-              staff.laborHealthInsuranceMode === "RATIO" ? "ratio" : "fixed",
-            laborHealthInsuranceRatio: staff.laborHealthInsuranceRatio,
-            laborHealthInsuranceCarryOverMonthly:
-              staff.laborHealthInsuranceCarryOverMonthly,
-            payNote: staff.payNote,
-          },
-        })
-      ).rejects.toThrow(/已鎖定/);
+      const updated = await updateStaff({
+        actorRole: "ADMIN",
+        id: staffId,
+        data: {
+          legalName: staff.legalName,
+          primaryNickname: staff.primaryNickname,
+          contactPhone: staff.contactPhone,
+          aliases: [],
+          title: staff.title,
+          kind: "regular",
+          guestPeriodKey: null,
+          payKind: "monthly",
+          hourlyRate: staff.hourlyRate,
+          monthlyPay: 42000,
+          commissionRate: staff.commissionRate,
+          targetBonusAmount: staff.targetBonusAmount,
+          laborHealthInsuranceAmount: staff.laborHealthInsuranceAmount,
+          laborHealthInsuranceMode:
+            staff.laborHealthInsuranceMode === "RATIO" ? "ratio" : "fixed",
+          laborHealthInsuranceRatio: staff.laborHealthInsuranceRatio,
+          laborHealthInsuranceCarryOverMonthly:
+            staff.laborHealthInsuranceCarryOverMonthly,
+          payNote: staff.payNote,
+        },
+      });
+      expect(updated.payKind).toBe("monthly");
+      expect(updated.monthlyPay).toBe(42000);
+
+      await updateStaff({
+        actorRole: "ADMIN",
+        id: staffId,
+        data: {
+          legalName: staff.legalName,
+          primaryNickname: staff.primaryNickname,
+          contactPhone: staff.contactPhone,
+          aliases: [],
+          title: staff.title,
+          kind: "regular",
+          guestPeriodKey: null,
+          payKind: "hourly",
+          hourlyRate: staff.hourlyRate,
+          monthlyPay: staff.monthlyPay,
+          commissionRate: staff.commissionRate,
+          targetBonusAmount: staff.targetBonusAmount,
+          laborHealthInsuranceAmount: staff.laborHealthInsuranceAmount,
+          laborHealthInsuranceMode:
+            staff.laborHealthInsuranceMode === "RATIO" ? "ratio" : "fixed",
+          laborHealthInsuranceRatio: staff.laborHealthInsuranceRatio,
+          laborHealthInsuranceCarryOverMonthly:
+            staff.laborHealthInsuranceCarryOverMonthly,
+          payNote: staff.payNote,
+        },
+      });
 
       await expect(
         upsertTemplateTask({

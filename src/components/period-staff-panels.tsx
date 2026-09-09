@@ -505,7 +505,7 @@ function PeriodStaffPanelInner({
     <section className="space-y-3">
       <h2 className="text-base font-medium">本期店員設定</h2>
       <p className="text-xs text-zinc-500">
-        場別／時數拆分、達標勾發、記點／加班／加給手填。儲存後請到薪資報表確認。
+        場別／時數拆分、達標勾發、記點／加班／加給手填。主檔時薪／月薪變更後請用上方「重算當月薪資」，再到薪資報表確認。
       </p>
       {records.length === 0 ? (
         <p className="text-sm text-zinc-500">本期沒有店員。</p>

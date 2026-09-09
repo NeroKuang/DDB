@@ -219,6 +219,9 @@ function StaffFormFields({
   const [laborMode, setLaborMode] = useState<
     StaffRecord["laborHealthInsuranceMode"]
   >(person?.laborHealthInsuranceMode ?? "fixed");
+  const [payKind, setPayKind] = useState<StaffRecord["payKind"]>(
+    person?.payKind ?? "hourly"
+  );
   const isGuest = kind === "guest";
 
   useEffect(() => {
@@ -328,36 +331,64 @@ function StaffFormFields({
       ) : (
         <input type="hidden" name="guestPeriodKey" value="" />
       )}
+      <fieldset className="flex flex-col gap-2 text-sm sm:col-span-2">
+        <legend className="mb-1">計薪方式</legend>
+        <input type="hidden" name="payKind" value={payKind} />
+        <div className="flex flex-wrap gap-4">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              value="hourly"
+              checked={payKind === "hourly"}
+              onChange={() => setPayKind("hourly")}
+            />
+            時薪
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              value="monthly"
+              checked={payKind === "monthly"}
+              onChange={() => setPayKind("monthly")}
+            />
+            月薪
+          </label>
+        </div>
+        <p className="text-xs text-muted">
+          時薪制＝時薪 ×
+          該列上班時數；月薪制＝月薪整筆落在指定場別（預設外場）。金額可留空，視為
+          0，計薪方式仍會儲存。
+        </p>
+      </fieldset>
       <label className="flex flex-col gap-1 text-sm">
-        <span>計薪方式</span>
-        <select
-          name="payKind"
-          defaultValue={person?.payKind ?? "hourly"}
-          className={inputClass}
-        >
-          <option value="hourly">時薪</option>
-          <option value="monthly">月薪</option>
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span>時薪</span>
+        <span>時薪{payKind === "hourly" ? "" : "（月薪制不採用）"}</span>
         <input
           name="hourlyRate"
           type="number"
           min={0}
           step="any"
-          defaultValue={person?.hourlyRate ?? 0}
+          defaultValue={
+            person?.hourlyRate != null && person.hourlyRate !== 0
+              ? person.hourlyRate
+              : ""
+          }
+          placeholder="0"
           className={inputClass}
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
-        <span>月薪</span>
+        <span>月薪{payKind === "monthly" ? "" : "（時薪制不採用）"}</span>
         <input
           name="monthlyPay"
           type="number"
           min={0}
           step="any"
-          defaultValue={person?.monthlyPay ?? 0}
+          defaultValue={
+            person?.monthlyPay != null && person.monthlyPay !== 0
+              ? person.monthlyPay
+              : ""
+          }
+          placeholder="0"
           className={inputClass}
         />
       </label>
@@ -464,6 +495,7 @@ export function StaffCreateForm({
   const [state, action, pending] = useActionState(createStaffAction, initial);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const router = useRouter();
+  const prevOk = useRef(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -480,11 +512,14 @@ export function StaffCreateForm({
   }, [open]);
 
   useEffect(() => {
-    if (!state.ok) {
-      return;
+    if (state.ok && !prevOk.current) {
+      prevOk.current = true;
+      setOpen(false);
+      router.refresh();
     }
-    setOpen(false);
-    router.refresh();
+    if (!state.ok) {
+      prevOk.current = false;
+    }
   }, [state.ok, router]);
 
   return (
@@ -695,6 +730,7 @@ function StaffInlineEdit({
   const [state, action, pending] = useActionState(updateStaffAction, initial);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const router = useRouter();
+  const prevOk = useRef(false);
   const periodQuery = defaultGuestPeriodKey
     ? `?period=${encodeURIComponent(defaultGuestPeriodKey)}`
     : "";
@@ -715,11 +751,14 @@ function StaffInlineEdit({
   }, [open]);
 
   useEffect(() => {
-    if (!state.ok) {
-      return;
+    if (state.ok && !prevOk.current) {
+      prevOk.current = true;
+      setOpen(false);
+      router.refresh();
     }
-    setOpen(false);
-    router.refresh();
+    if (!state.ok) {
+      prevOk.current = false;
+    }
   }, [state.ok, router]);
 
   return (

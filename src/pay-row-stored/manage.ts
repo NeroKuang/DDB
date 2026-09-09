@@ -11,7 +11,15 @@ export type PayRowStoredRecord = {
   values: Partial<PayRowOriginals>;
 };
 
-const STORED_FIELDS: (keyof PayRowOriginals)[] = [
+export type StoredOverrideCell = {
+  staffId: string;
+  primaryNickname: string;
+  venue: Venue;
+  field: keyof PayRowOriginals;
+  value: number;
+};
+
+export const STORED_FIELDS: (keyof PayRowOriginals)[] = [
   "hours",
   "basePay",
   "sales",
@@ -30,6 +38,34 @@ const STORED_FIELDS: (keyof PayRowOriginals)[] = [
   "netPay",
 ];
 
+export function storedOverrideKey(cell: {
+  staffId: string;
+  venue: Venue;
+  field: string;
+}): string {
+  return `${cell.staffId}|${cell.venue}|${cell.field}`;
+}
+
+export function flattenStoredOverrides(
+  records: PayRowStoredRecord[]
+): StoredOverrideCell[] {
+  const cells: StoredOverrideCell[] = [];
+  for (const row of records) {
+    for (const field of STORED_FIELDS) {
+      const value = row.values[field];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        cells.push({
+          staffId: row.staffId,
+          primaryNickname: row.primaryNickname,
+          venue: row.venue,
+          field,
+          value,
+        });
+      }
+    }
+  }
+  return cells;
+}
 function parseValuesJson(raw: unknown): Partial<PayRowOriginals> {
   if (!raw || typeof raw !== "object") {
     return {};
@@ -182,4 +218,69 @@ export async function upsertPayRowStored(input: {
     venue: input.venue,
     values: parseValuesJson(row.valuesJson),
   };
+}
+
+/**
+ * Keep only the listed override cells; delete every other stored field for this period.
+ * Used by manual 重算 when Admin unchecks cells (or clears all).
+ */
+export async function retainStoredOverrides(input: {
+  actorRole: AccountRole;
+  storeId: string;
+  periodKey: string;
+  keepKeys: ReadonlySet<string> | string[];
+}): Promise<{ kept: number; cleared: number }> {
+  if (input.actorRole !== "ADMIN") {
+    throw new Error("只有 Admin 可以修改薪資儲存值");
+  }
+  await assertPayPeriodUnlockedForWrite(input.storeId, input.periodKey);
+  const keep = new Set(
+    (Array.isArray(input.keepKeys)
+      ? input.keepKeys
+      : [...input.keepKeys]
+    ).filter(Boolean)
+  );
+  const payPeriod = await prisma.payPeriod.findUnique({
+    where: {
+      storeId_periodKey: { storeId: input.storeId, periodKey: input.periodKey },
+    },
+    include: {
+      storedPayRows: { include: { staff: true } },
+    },
+  });
+  if (!payPeriod) {
+    return { kept: 0, cleared: 0 };
+  }
+  let kept = 0;
+  let cleared = 0;
+  for (const row of payPeriod.storedPayRows) {
+    const prior = parseValuesJson(row.valuesJson);
+    const next: Partial<PayRowOriginals> = {};
+    for (const field of STORED_FIELDS) {
+      const value = prior[field];
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        continue;
+      }
+      const key = storedOverrideKey({
+        staffId: row.staffId,
+        venue: row.venue as Venue,
+        field,
+      });
+      if (keep.has(key)) {
+        next[field] = value;
+        kept += 1;
+      } else {
+        cleared += 1;
+      }
+    }
+    if (Object.keys(next).length === 0) {
+      await prisma.payRowStored.delete({ where: { id: row.id } });
+    } else {
+      await prisma.payRowStored.update({
+        where: { id: row.id },
+        data: { valuesJson: next },
+      });
+    }
+  }
+  return { kept, cleared };
 }

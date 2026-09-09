@@ -89,6 +89,33 @@ describe("staff master CRUD", () => {
     });
     expect(updated.hourlyRate).toBe(250);
     expect(updated.aliases).toEqual(["別名C"]);
+
+    const asMonthly = await updateStaff({
+      actorRole: "ADMIN",
+      id: created.id,
+      data: {
+        legalName: updated.legalName,
+        primaryNickname: updated.primaryNickname,
+        contactPhone: updated.contactPhone,
+        aliases: updated.aliases,
+        title: updated.title,
+        kind: updated.kind,
+        guestPeriodKey: updated.guestPeriodKey,
+        payKind: "monthly",
+        hourlyRate: updated.hourlyRate,
+        monthlyPay: 42000,
+        commissionRate: updated.commissionRate,
+        targetBonusAmount: updated.targetBonusAmount,
+        laborHealthInsuranceAmount: updated.laborHealthInsuranceAmount,
+        laborHealthInsuranceMode: updated.laborHealthInsuranceMode,
+        laborHealthInsuranceRatio: updated.laborHealthInsuranceRatio,
+        laborHealthInsuranceCarryOverMonthly:
+          updated.laborHealthInsuranceCarryOverMonthly,
+        payNote: updated.payNote,
+      },
+    });
+    expect(asMonthly.payKind).toBe("monthly");
+    expect(asMonthly.monthlyPay).toBe(42000);
   });
 
   it("opens personal with phone login and last-four password", async () => {

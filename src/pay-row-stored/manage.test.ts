@@ -4,6 +4,9 @@ import { zhongshanJuly2026Shop } from "@/compile/zhongshan-july-2026-shop";
 import { JULY_2026_PERIOD_KEY } from "@/ad-hoc-tasks/manage";
 import {
   loadSavedStoredMap,
+  listPayRowStored,
+  retainStoredOverrides,
+  storedOverrideKey,
   upsertPayRowStored,
 } from "@/pay-row-stored/manage";
 import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
@@ -34,5 +37,36 @@ describe("pay-row-stored", () => {
     });
     const row = result.payRows.find((item) => item.primaryNickname === "粉冥");
     expect(row?.stored.commission).toBe(999);
+  });
+
+  it("retainStoredOverrides keeps only selected person×field cells", async () => {
+    const { storeId } = await seedZhongshanStoreAndStaff();
+    const staff = await prisma.staff.findFirstOrThrow({
+      where: { storeId, primaryNickname: "粉冥" },
+    });
+    await upsertPayRowStored({
+      actorRole: "ADMIN",
+      storeId,
+      periodKey: JULY_2026_PERIOD_KEY,
+      staffId: staff.id,
+      venue: "frontOfHouse",
+      values: { commission: 999, allowance: 100 },
+    });
+    const result = await retainStoredOverrides({
+      actorRole: "ADMIN",
+      storeId,
+      periodKey: JULY_2026_PERIOD_KEY,
+      keepKeys: [
+        storedOverrideKey({
+          staffId: staff.id,
+          venue: "frontOfHouse",
+          field: "allowance",
+        }),
+      ],
+    });
+    expect(result).toEqual({ kept: 1, cleared: 1 });
+    const rows = await listPayRowStored(storeId, JULY_2026_PERIOD_KEY);
+    const fen = rows.find((row) => row.staffId === staff.id);
+    expect(fen?.values).toEqual({ allowance: 100 });
   });
 });

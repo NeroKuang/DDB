@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { parseCommissionRateField } from "@/lib/commission-rate";
+import { parseMoneyFormField } from "@/lib/parse-money-field";
 import {
   createStaff,
   openPersonalAccountForStaff,
@@ -34,12 +35,16 @@ function staffFromForm(formData: FormData): StaffWriteInput {
       String(formData.get("payKind") ?? "hourly") === "monthly"
         ? "monthly"
         : "hourly",
-    hourlyRate: Number(formData.get("hourlyRate") ?? 0),
-    monthlyPay: Number(formData.get("monthlyPay") ?? 0),
+    hourlyRate: parseMoneyFormField(formData.get("hourlyRate"), "時薪"),
+    monthlyPay: parseMoneyFormField(formData.get("monthlyPay"), "月薪"),
     commissionRate: parseCommissionRateField(formData.get("commissionRate")),
-    targetBonusAmount: Number(formData.get("targetBonusAmount") ?? 0),
-    laborHealthInsuranceAmount: Number(
-      formData.get("laborHealthInsuranceAmount") ?? 0
+    targetBonusAmount: parseMoneyFormField(
+      formData.get("targetBonusAmount"),
+      "達標額"
+    ),
+    laborHealthInsuranceAmount: parseMoneyFormField(
+      formData.get("laborHealthInsuranceAmount"),
+      "勞健保固定額"
     ),
     laborHealthInsuranceMode:
       String(formData.get("laborHealthInsuranceMode") ?? "fixed") === "ratio"

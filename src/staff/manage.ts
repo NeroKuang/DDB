@@ -7,10 +7,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { parseLaborHealthMode } from "@/lib/labor-health-insurance";
 import { roundMoney } from "@/lib/money";
-import {
-  assertJulyPayPeriodUnlocked,
-  assertPayPeriodUnlockedForWrite,
-} from "@/pay-period/guards";
+import { assertPayPeriodUnlockedForWrite } from "@/pay-period/guards";
 import {
   defaultLoginUsernameFromPhone,
   defaultPasswordFromContactPhone,
@@ -162,11 +159,12 @@ async function assertStaffWriteAllowed(
   storeId: string,
   data: StaffWriteInput
 ): Promise<void> {
+  // Regular staff master is not period-scoped. Gating it on the legacy July
+  // lock blocked 時薪↔月薪 (and all other master edits) after 7 月 was locked.
+  // Guest rows still bind to a period — only those check that period's lock.
   if (data.kind === "guest" && data.guestPeriodKey) {
     await assertPayPeriodUnlockedForWrite(storeId, data.guestPeriodKey);
-    return;
   }
-  await assertJulyPayPeriodUnlocked(storeId);
 }
 
 function normalizeStaffInput(input: StaffWriteInput): StaffWriteInput {
@@ -182,6 +180,12 @@ function normalizeStaffInput(input: StaffWriteInput): StaffWriteInput {
     input.laborHealthInsuranceRatio > 1
   ) {
     throw new Error("勞健保比例須在 0～1 之間");
+  }
+  if (!Number.isFinite(input.hourlyRate) || input.hourlyRate < 0) {
+    throw new Error("時薪須為有效數字");
+  }
+  if (!Number.isFinite(input.monthlyPay) || input.monthlyPay < 0) {
+    throw new Error("月薪須為有效數字");
   }
   const guestPeriodKey = normalizeGuestPeriodKey(input);
   return {
