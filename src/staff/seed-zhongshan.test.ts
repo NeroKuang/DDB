@@ -29,4 +29,24 @@ describe("seedZhongshanStoreAndStaff", () => {
       true
     );
   });
+
+  it("does not overwrite Admin payKind on re-seed (bootstrap)", async () => {
+    await seedZhongshanStoreAndStaff();
+    const store = await prisma.store.findUniqueOrThrow({
+      where: { code: ZHONGSHAN_STORE_CODE },
+    });
+    const xiamian = await prisma.staff.findFirstOrThrow({
+      where: { storeId: store.id, primaryNickname: "夏眠" },
+    });
+    await prisma.staff.update({
+      where: { id: xiamian.id },
+      data: { payKind: "MONTHLY", monthlyPay: 42000, hourlyRate: 0 },
+    });
+    await seedZhongshanStoreAndStaff();
+    const after = await prisma.staff.findUniqueOrThrow({
+      where: { id: xiamian.id },
+    });
+    expect(after.payKind).toBe("MONTHLY");
+    expect(after.monthlyPay).toBe(42000);
+  });
 });

@@ -31,30 +31,33 @@ export async function seedZhongshanStoreAndStaff(): Promise<{
   });
 
   for (const person of shop.staff) {
-    const staff = await prisma.staff.upsert({
+    const existing = await prisma.staff.findUnique({
       where: {
         storeId_primaryNickname: {
           storeId: store.id,
           primaryNickname: person.primaryNickname,
         },
       },
-      create: {
+    });
+    // Bootstrap must not clobber Admin edits (payKind / rates / etc.).
+    // Existing rows: only ensure aliases; never overwrite master fields.
+    if (existing) {
+      if (person.aliases.length > 0) {
+        await prisma.staffAlias.createMany({
+          data: person.aliases.map((nickname) => ({
+            staffId: existing.id,
+            nickname,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      continue;
+    }
+    const staff = await prisma.staff.create({
+      data: {
         storeId: store.id,
         legalName: person.legalName,
         primaryNickname: person.primaryNickname,
-        title: person.title,
-        kind: toDbKind(person.kind),
-        payKind: toDbPayKind(person.payKind),
-        hourlyRate: person.hourlyRate,
-        monthlyPay: person.monthlyPay,
-        commissionRate: person.commissionRate,
-        targetBonusAmount: person.targetBonusAmount,
-        laborHealthInsuranceAmount: person.laborHealthInsuranceAmount,
-        payNote: person.payNote,
-        guestPeriodKey: guestPeriodKeyForSeed(person),
-      },
-      update: {
-        legalName: person.legalName,
         title: person.title,
         kind: toDbKind(person.kind),
         payKind: toDbPayKind(person.payKind),
