@@ -36,7 +36,8 @@ App 特性：Next.js standalone + **Playwright Chromium**（網頁取數）。Im
 
 - App：**單容器**用現有根目錄 `Dockerfile`（勿另寫「無 Playwright」替代檔當正式路徑）。
 - Postgres + MinIO：可與 app 同機 Docker Compose，或託管 DB + 同機 MinIO。
-- 本機 `docker-compose.yml` **只**含 db／minio（開發用）；正式環境 app 用 Dockerfile，不要把 `next dev` 當生產。
+- MinIO 映像：**勿**再用 `minio/minio`（Docker Hub 已撤）；正式／本機 compose 用 `cgr.dev/chainguard/minio` + `bitnamilegacy/minio-client`（見 `docker-compose.prod.yml`）。
+- 本機 `docker-compose.yml` **只**含 db／minio（開發用）；正式環境用 `docker-compose.prod.yml`。
 
 ---
 

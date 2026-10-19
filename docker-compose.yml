@@ -20,10 +20,11 @@ services:
       timeout: 5s
       retries: 10
 
+  # Official minio/minio left Docker Hub (2026); use Chainguard public image.
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ddb
       MINIO_ROOT_PASSWORD: ddb_dev_minio
@@ -34,17 +35,19 @@ services:
       - ddb_minio_data:/data
 
   minio-init:
-    image: minio/mc:latest
+    image: bitnamilegacy/minio-client:latest
     depends_on:
       - minio
     restart: "no"
-    entrypoint: >
-      /bin/sh -c "
-      sleep 4;
-      mc alias set local http://minio:9000 ddb ddb_dev_minio;
-      mc mb local/ddb --ignore-existing;
-      echo MinIO bucket ddb ready;
-      "
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        MC=/opt/bitnami/minio-client/bin/mc
+        sleep 4
+        "$$MC" alias set local http://minio:9000 ddb ddb_dev_minio
+        "$$MC" mb local/ddb --ignore-existing
+        echo MinIO bucket ddb ready
 
 volumes:
   ddb_pgdata:
