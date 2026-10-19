@@ -93,3 +93,18 @@ describe("businessDateOf / range helpers (noon cut)", () => {
     });
   });
 });
+
+describe("previousCompletedBusinessDate", () => {
+  it("excludes the still-open business day after noon", async () => {
+    const { previousCompletedBusinessDate } =
+      await import("@/range/daily-fetch-manage");
+    // 2026-10-19 16:00 Taipei → open day 10/19 → last completed 10/18
+    expect(
+      previousCompletedBusinessDate(new Date("2026-10-19T16:00:00+08:00"))
+    ).toBe("2026-10-18");
+    // 2026-10-19 10:00 → still in open day 10/18 → last completed 10/17
+    expect(
+      previousCompletedBusinessDate(new Date("2026-10-19T10:00:00+08:00"))
+    ).toBe("2026-10-17");
+  });
+});

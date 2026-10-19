@@ -21,6 +21,43 @@ import {
 
 export const MAX_RANGE_BUSINESS_DAYS = 31;
 
+/** Stale BUSINESS_DAY RUNNING older than this is failed and retried. */
+export const DAILY_FETCH_STALE_MS = 45 * 60 * 1000;
+
+/** Last fully closed 營業日 (excludes the still-open day after noon). */
+export function previousCompletedBusinessDate(now = new Date()): string {
+  const openOrLast = businessDateOf(now);
+  const at = new Date(`${openOrLast}T12:00:00+08:00`);
+  at.setUTCDate(at.getUTCDate() - 1);
+  return at.toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" });
+}
+
+async function failStaleRunningDay(
+  storeId: string,
+  businessDate: string,
+  startedAt: Date | null
+): Promise<boolean> {
+  if (!startedAt) {
+    return false;
+  }
+  if (Date.now() - startedAt.getTime() < DAILY_FETCH_STALE_MS) {
+    return false;
+  }
+  await prisma.businessDayImport.updateMany({
+    where: {
+      storeId,
+      businessDate,
+      fetchStatus: "RUNNING",
+    },
+    data: {
+      fetchStatus: "FAILED",
+      fetchFinishedAt: new Date(),
+      fetchErrorMessage: "取數逾時或伺服器重啟，請重新補取",
+    },
+  });
+  return true;
+}
+
 export type DailyFetchRunner = (
   creds: IchefCredentials,
   range: { startDate: string; endDate: string }
@@ -54,21 +91,20 @@ export async function runDailyFetchJob(
   storeId: string,
   businessDate: string
 ): Promise<void> {
-  const row = await prisma.businessDayImport.findUnique({
-    where: { storeId_businessDate: { storeId, businessDate } },
-  });
-  if (!row || row.fetchStatus !== "RUNNING") {
-    return;
-  }
-
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: { code: true, fetchLockToken: true },
   });
   const lockToken = store?.fetchLockToken ?? null;
-  const range = ichefFileRangeForBusinessDate(businessDate);
 
   try {
+    const row = await prisma.businessDayImport.findUnique({
+      where: { storeId_businessDate: { storeId, businessDate } },
+    });
+    if (!row || row.fetchStatus !== "RUNNING") {
+      return;
+    }
+
     const creds = readIchefCredentialsFromEnv();
     if (!creds) {
       await prisma.businessDayImport.update({
@@ -81,6 +117,7 @@ export async function runDailyFetchJob(
       });
       return;
     }
+    const range = ichefFileRangeForBusinessDate(businessDate);
     const fetched = await dailyFetchRunner(creds, range);
     await runDailyIngestPipeline({
       storeId,
@@ -91,8 +128,12 @@ export async function runDailyFetchJob(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "每日取數失敗";
-    await prisma.businessDayImport.update({
-      where: { id: row.id },
+    await prisma.businessDayImport.updateMany({
+      where: {
+        storeId,
+        businessDate,
+        fetchStatus: "RUNNING",
+      },
       data: {
         fetchStatus: "FAILED",
         fetchFinishedAt: new Date(),
@@ -159,9 +200,8 @@ export async function runDailyFetchCatchUp(input: {
 }> {
   const lookback = input.lookbackDays ?? 7;
   const now = input.now ?? new Date();
-  const endDate = businessDateOf(now);
-  // Previous completed business day ends at today's noon; prefer ending at endDate - 0
-  // and include recent days. Catch-up from endDate-(lookback-1) .. endDate.
+  // Do not fetch the still-open 營業日 (incomplete POS day).
+  const endDate = previousCompletedBusinessDate(now);
   const startParts = new Date(`${endDate}T12:00:00+08:00`);
   startParts.setUTCDate(startParts.getUTCDate() - (lookback - 1));
   const startDate = startParts.toLocaleDateString("en-CA", {
@@ -171,15 +211,23 @@ export async function runDailyFetchCatchUp(input: {
   const attempted: string[] = [];
 
   for (const businessDate of dates) {
-    const row = await ensureBusinessDayRow(input.storeId, businessDate);
+    let row = await ensureBusinessDayRow(input.storeId, businessDate);
     if (row.fetchStatus === "SUCCEEDED" && row.activeImportRunId) {
       continue;
     }
     if (row.fetchStatus === "RUNNING") {
-      return {
-        attempted,
-        skippedReason: "day already running",
-      };
+      const cleared = await failStaleRunningDay(
+        input.storeId,
+        businessDate,
+        row.fetchStartedAt
+      );
+      if (!cleared) {
+        return {
+          attempted,
+          skippedReason: "day already running",
+        };
+      }
+      row = await ensureBusinessDayRow(input.storeId, businessDate);
     }
 
     const lock = await acquireStoreFetchLock(input.storeId);

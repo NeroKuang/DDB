@@ -141,6 +141,9 @@ export function RangeBackfillForm({
 }
 
 export function RangeCoverageBar({ result }: { result: RangeViewResult }) {
+  const failures = result.coverage.filter(
+    (day) => day.status === "failed" && day.errorMessage
+  );
   return (
     <div className="card-surface p-3">
       <p className="mb-2 text-sm font-medium">資料覆蓋</p>
@@ -152,13 +155,28 @@ export function RangeCoverageBar({ result }: { result: RangeViewResult }) {
             title={day.errorMessage ?? undefined}
           >
             <span className="tabular-nums">{day.businessDate.slice(5)}</span>{" "}
-            <span className="text-muted">{coverageLabel(day.status)}</span>
+            <span
+              className={
+                day.status === "failed" ? "text-[var(--danger)]" : "text-muted"
+              }
+            >
+              {coverageLabel(day.status)}
+            </span>
           </li>
         ))}
       </ul>
+      {failures.length > 0 ? (
+        <ul className="mt-2 space-y-1 text-xs text-[var(--danger)]">
+          {failures.map((day) => (
+            <li key={`err-${day.businessDate}`}>
+              {day.businessDate}：{day.errorMessage}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {!result.complete ? (
         <p className="mt-2 text-xs text-[var(--danger)]">
-          區間未完整：時數與底薪預估暫不顯示半截數字；業績仍加總已就緒之日。
+          區間未完整：時數與底薪預估暫不顯示半截數字；業績仍加總已就緒之日。可按「補取此區間缺日」重試失敗／缺資料日。
         </p>
       ) : null}
     </div>
