@@ -28,11 +28,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env（保留 .env.example 可提交）
+# env（保留 .env.example / .env.prod.example 可提交）
 .env
 .env.local
+.env.prod
 .env.*.local
 !.env.example
+!.env.prod.example
 
 .vercel
 
