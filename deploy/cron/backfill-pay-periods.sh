@@ -72,4 +72,3 @@ echo "[backfill] GET ${URL}"
 exec curl -fsS --max-time 14400 \
   -H "Authorization: Bearer ${CRON_SECRET}" \
   "$URL"
-echo
