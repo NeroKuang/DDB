@@ -98,6 +98,21 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f cron
 
 驗收：job log 有 `ok`／明確失敗；app log 有對應 cron 執行。不必再用 cron-job.org 或 host crontab（有的話請刪掉以免雙重觸發）。
 
+### 手動：依薪資期間補月結網頁取數（不自動跑）
+
+一次依序撈多個月份（整月注記分析；店鎖，逐月等待）。**未排進 crontab**，需人工執行：
+
+```bash
+cd /opt/ddb
+# 重建 app（含 API）與 cron（含腳本）後再跑；不要自動執行
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build app cron
+
+./scripts/vps-backfill-pay-periods.sh --from 2026-07 --to 2026-10
+# 省略 --to = 做到當月（Asia/Taipei）
+# --force = 已成功也重抓
+# --continue-on-error = 某月失敗仍繼續後面
+```
+
 ---
 
 ## 5. 遷出／新機上線步驟（無資料搬遷）

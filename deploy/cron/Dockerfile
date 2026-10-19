@@ -7,9 +7,11 @@ RUN apk add --no-cache curl tzdata util-linux \
 COPY crontab /etc/crontabs/root
 COPY entrypoint.sh /entrypoint.sh
 COPY run-job.sh /usr/local/bin/run-job.sh
+COPY backfill-pay-periods.sh /usr/local/bin/backfill-pay-periods.sh
 
 RUN chmod 0644 /etc/crontabs/root \
   && chmod 0755 /entrypoint.sh /usr/local/bin/run-job.sh \
+    /usr/local/bin/backfill-pay-periods.sh \
   && touch /var/log/ddb-cron.log
 
 ENV TZ=Asia/Taipei
