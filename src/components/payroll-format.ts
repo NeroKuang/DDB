@@ -24,7 +24,7 @@ export function venueLabel(venue: Venue): string {
 }
 
 export function staffKindLabel(kind: StaffKind): string {
-  return kind === "guest" ? "客座" : "正職";
+  return kind === "guest" ? "客座" : "一般";
 }
 
 export function isStoredOverride(original: number, stored: number): boolean {

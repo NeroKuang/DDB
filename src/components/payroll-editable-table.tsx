@@ -271,7 +271,7 @@ export function PayrollEditableTable({
             }
             options={[
               { value: "all", label: "全部類型" },
-              { value: "regular", label: "正職" },
+              { value: "regular", label: "一般" },
               { value: "guest", label: "客座" },
             ]}
           />

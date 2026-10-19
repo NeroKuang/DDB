@@ -10,6 +10,7 @@ import {
   runWebFetchJob,
   setWebFetchRunnerForTests,
   startWebFetch,
+  WEB_FETCH_STALE_MS,
 } from "@/web-fetch/manage";
 
 applyDotEnvFile();
@@ -78,6 +79,28 @@ describe("web fetch progress", () => {
         periodKey: JULY_2026_PERIOD_KEY,
       })
     ).rejects.toThrow(/已鎖定/);
+    await prisma.payPeriod.deleteMany({
+      where: { storeId, periodKey: JULY_2026_PERIOD_KEY },
+    });
+  });
+
+  it("reclaims stale RUNNING on getWebFetchProgress", async () => {
+    await prisma.payPeriod.deleteMany({
+      where: { storeId, periodKey: JULY_2026_PERIOD_KEY },
+    });
+    await prisma.payPeriod.create({
+      data: {
+        storeId,
+        periodKey: JULY_2026_PERIOD_KEY,
+        fetchStatus: "RUNNING",
+        fetchStartedAt: new Date(Date.now() - WEB_FETCH_STALE_MS - 1000),
+        fetchRangeStart: "2026-06-30",
+        fetchRangeEnd: "2026-08-01",
+      },
+    });
+    const progress = await getWebFetchProgress(storeId, JULY_2026_PERIOD_KEY);
+    expect(progress.status).toBe("FAILED");
+    expect(progress.errorMessage).toMatch(/逾時|重啟/);
     await prisma.payPeriod.deleteMany({
       where: { storeId, periodKey: JULY_2026_PERIOD_KEY },
     });

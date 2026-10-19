@@ -18,6 +18,9 @@ import {
   releaseStoreFetchLock,
 } from "@/web-fetch/store-fetch-lock";
 
+/** Month 網頁取數 RUNNING older than this is failed so Admin/cron can retry. */
+export const WEB_FETCH_STALE_MS = 45 * 60 * 1000;
+
 export type WebFetchProgress = {
   periodKey: string;
   status: WebFetchStatus;
@@ -85,12 +88,48 @@ function mapProgress(row: {
   };
 }
 
+async function reclaimStaleWebFetch(
+  storeId: string,
+  periodKey: string
+): Promise<void> {
+  const staleBefore = new Date(Date.now() - WEB_FETCH_STALE_MS);
+  const cleared = await prisma.payPeriod.updateMany({
+    where: {
+      storeId,
+      periodKey,
+      fetchStatus: "RUNNING",
+      fetchStartedAt: { lt: staleBefore },
+    },
+    data: {
+      fetchStatus: "FAILED",
+      fetchFinishedAt: new Date(),
+      fetchErrorMessage: "取數逾時或伺服器重啟，請重新發動",
+    },
+  });
+  if (cleared.count > 0) {
+    await prisma.store.updateMany({
+      where: { id: storeId },
+      data: { fetchLockToken: null, fetchLockAcquiredAt: null },
+    });
+  }
+}
+
 export async function getWebFetchProgress(
   storeId: string,
   periodKey: string
 ): Promise<WebFetchProgress> {
+  await reclaimStaleWebFetch(storeId, periodKey);
   const row = await prisma.payPeriod.findUnique({
     where: { storeId_periodKey: { storeId, periodKey } },
+    select: {
+      periodKey: true,
+      fetchStatus: true,
+      fetchStartedAt: true,
+      fetchFinishedAt: true,
+      fetchErrorMessage: true,
+      fetchRangeStart: true,
+      fetchRangeEnd: true,
+    },
   });
   if (!row) {
     return {
@@ -119,6 +158,7 @@ export async function startWebFetch(input: {
   }
   const range = fileRangeForPeriodKey(input.periodKey);
   const row = await ensurePayPeriodRow(input.storeId, input.periodKey);
+  await reclaimStaleWebFetch(input.storeId, input.periodKey);
 
   const current = await prisma.payPeriod.findUnique({ where: { id: row.id } });
   if (current?.fetchStatus === "RUNNING") {

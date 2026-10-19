@@ -3,8 +3,11 @@ import { seedZhongshanStoreAndStaff } from "@/staff/seed-zhongshan";
 import { seedJulyPeriodStaffFromFixture } from "@/pay-period-staff/manage";
 import { seedStaffTitlesFromFixture } from "@/staff-titles/manage";
 
-/** Seed Admin (if env present) and 中山門市／店員 master for local demos. */
-export async function ensureAppBootstrap(): Promise<void> {
+const globalForBootstrap = globalThis as unknown as {
+  ddbBootstrapPromise?: Promise<void>;
+};
+
+async function runAppBootstrap(): Promise<void> {
   // `next build` must not open Postgres (Docker/Zeabur builder has no DB).
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return;
@@ -20,4 +23,22 @@ export async function ensureAppBootstrap(): Promise<void> {
   await seedZhongshanStoreAndStaff();
   await seedJulyPeriodStaffFromFixture();
   await seedStaffTitlesFromFixture();
+}
+
+/** Seed Admin (if env present) and 中山門市／店員 master — once per process. */
+export async function ensureAppBootstrap(): Promise<void> {
+  if (!globalForBootstrap.ddbBootstrapPromise) {
+    globalForBootstrap.ddbBootstrapPromise = runAppBootstrap().catch(
+      (error) => {
+        globalForBootstrap.ddbBootstrapPromise = undefined;
+        throw error;
+      }
+    );
+  }
+  await globalForBootstrap.ddbBootstrapPromise;
+}
+
+/** Test helper: clear process-level bootstrap memo. */
+export function resetAppBootstrapForTests(): void {
+  globalForBootstrap.ddbBootstrapPromise = undefined;
 }

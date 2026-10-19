@@ -30,6 +30,21 @@ export async function seedZhongshanStoreAndStaff(): Promise<{
     update: { name: "中山" },
   });
 
+  const existingCount = await prisma.staff.count({
+    where: { storeId: store.id },
+  });
+  // Already seeded: skip per-staff findUnique loop (shell hits this every request).
+  if (existingCount > 0) {
+    await prisma.staff.updateMany({
+      where: { storeId: store.id, commissionRate: 0 },
+      data: { commissionRate: DEFAULT_COMMISSION_RATE },
+    });
+    return {
+      storeId: store.id,
+      staffCount: existingCount,
+    };
+  }
+
   for (const person of shop.staff) {
     const existing = await prisma.staff.findUnique({
       where: {

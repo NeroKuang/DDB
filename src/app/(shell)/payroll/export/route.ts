@@ -3,13 +3,11 @@ import { NextResponse } from "next/server";
 import { compileZhongshanPayPeriod } from "@/compile/compile-for-period";
 import { payRowsToNamedCsv } from "@/export/pay-report-csv";
 import { authOptions } from "@/lib/auth-options";
-import { ensureAppBootstrap } from "@/lib/ensure-bootstrap";
 import { resolvePeriodKey } from "@/lib/resolve-period-key";
 import { prisma } from "@/lib/prisma";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export async function GET(request: Request) {
-  await ensureAppBootstrap();
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
