@@ -45,6 +45,7 @@ export const APP_NAV: NavSection[] = [
     title: "系統",
     hideForPersonal: true,
     items: [
+      { href: "/store-settings", label: "門市設定", adminOnly: true },
       { href: "/accounts", label: "帳號與密碼" },
       { href: "/storage-retention", label: "raw 保留策略", adminOnly: true },
     ],
