@@ -20,6 +20,7 @@ export const APP_NAV: NavSection[] = [
       { href: "/", label: "中控台" },
       { href: "/payroll", label: "薪資報表" },
       { href: "/performance", label: "業績面" },
+      { href: "/range", label: "營業日區間" },
     ],
   },
   {
@@ -55,7 +56,10 @@ export function navSectionsForRole(role: AccountRole): NavSection[] {
     return [
       {
         title: "我的",
-        items: [{ href: "/performance", label: "業績面" }],
+        items: [
+          { href: "/performance", label: "業績面" },
+          { href: "/range", label: "營業日區間" },
+        ],
       },
     ];
   }

@@ -53,6 +53,12 @@ enum ImportRunStatus {
   FAILED
 }
 
+/** PAY_PERIOD = 月結／薪資期間匯入；BUSINESS_DAY = 單營業日 grain（區間檢視用，不進月編成）. */
+enum ImportRunKind {
+  PAY_PERIOD
+  BUSINESS_DAY
+}
+
 enum RawFileKind {
   CHECKOUT
   PUNCHES
@@ -85,15 +91,39 @@ model Store {
   name                    String
   /** 新增店員時預填的業績成數（0～1）. */
   defaultCommissionRate   Float          @default(0.2) @map("default_commission_rate")
+  /** Atomic 網頁取數鎖（月／日共用）；持鎖 token 非空表示進行中. */
+  fetchLockToken          String?        @map("fetch_lock_token")
+  fetchLockAcquiredAt     DateTime?      @map("fetch_lock_acquired_at")
   staff                   Staff[]
   templateTasks TemplateTask[]
   adHocTasks    AdHocTask[]
   posItems      PosItem[]
   payPeriods    PayPeriod[]
   staffTitles   StaffTitle[]
+  businessDayImports BusinessDayImport[]
   createdAt     DateTime       @default(now()) @map("created_at")
 
   @@map("stores")
+}
+
+/** Per-store × business-day active import + fetch progress (not month payroll). */
+model BusinessDayImport {
+  id                 String         @id @default(cuid())
+  storeId            String         @map("store_id")
+  store              Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  businessDate       String         @map("business_date")
+  activeImportRunId  String?        @map("active_import_run_id")
+  fetchStatus        WebFetchStatus @default(IDLE) @map("fetch_status")
+  fetchStartedAt     DateTime?      @map("fetch_started_at")
+  fetchFinishedAt    DateTime?      @map("fetch_finished_at")
+  fetchErrorMessage  String?        @map("fetch_error_message") @db.Text
+  fetchRangeStart    String?        @map("fetch_range_start")
+  fetchRangeEnd      String?        @map("fetch_range_end")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  @@unique([storeId, businessDate])
+  @@map("business_day_imports")
 }
 
 /** One 門市 × 一期薪資（periodKey 如 2026-07）。 */
@@ -293,6 +323,10 @@ model ImportRun {
   id             String              @id @default(cuid())
   payPeriodId    String              @map("pay_period_id")
   payPeriod      PayPeriod           @relation(fields: [payPeriodId], references: [id], onDelete: Cascade)
+  /** Defaults PAY_PERIOD; BUSINESS_DAY rows hang under the calendar-month period for storage only. */
+  kind           ImportRunKind       @default(PAY_PERIOD)
+  /** YYYY-MM-DD when kind=BUSINESS_DAY; null for month imports. */
+  businessDate   String?             @map("business_date")
   source         ImportSource
   status         ImportRunStatus     @default(RUNNING)
   startedAt      DateTime            @default(now()) @map("started_at")
@@ -309,6 +343,7 @@ model ImportRun {
   compileRuns    CompileRun[]
 
   @@index([payPeriodId, startedAt])
+  @@index([payPeriodId, kind, businessDate])
   @@map("import_runs")
 }
 
@@ -351,6 +386,8 @@ model ImportPunchPair {
   nickname    String
   hours       Float
   paired      Boolean   @default(true)
+  clockInAt   DateTime? @map("clock_in_at")
+  clockOutAt  DateTime? @map("clock_out_at")
 
   @@index([importRunId, nickname])
   @@map("import_punch_pairs")

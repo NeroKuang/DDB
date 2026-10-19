@@ -106,7 +106,7 @@ describe("web fetch progress", () => {
     });
   });
 
-  /** Other periodKeys on the same store (e.g. stuck RUNNING from local UI) must not block. */
+  /** Clear stuck RUNNING periods and store-level fetch lock between cases. */
   async function clearStoreRunningFetches(): Promise<void> {
     await prisma.payPeriod.updateMany({
       where: { storeId, fetchStatus: "RUNNING" },
@@ -115,6 +115,10 @@ describe("web fetch progress", () => {
         fetchFinishedAt: new Date(),
         fetchErrorMessage: "test reset concurrent RUNNING",
       },
+    });
+    await prisma.store.update({
+      where: { id: storeId },
+      data: { fetchLockToken: null, fetchLockAcquiredAt: null },
     });
   }
 

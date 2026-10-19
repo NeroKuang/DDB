@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { isInPayPeriod, parseIchefDateTime } from "@/lib/business-day";
+import {
+  boundsForBusinessDateRange,
+  businessDateOf,
+  enumerateBusinessDates,
+  ichefFileRangeForBusinessDate,
+  isInPayPeriod,
+  parseIchefDateTime,
+  periodKeyForBusinessDate,
+} from "@/lib/business-day";
 import { businessDaysForCalendarMonth } from "@/lib/pay-period-calendar";
 
 describe("business-day noon cut", () => {
@@ -26,5 +34,62 @@ describe("business-day noon cut", () => {
     expect(midJuly).not.toBeNull();
     expect(isInPayPeriod(midJuly!, juneStart, juneEnd)).toBe(false);
     expect(isInPayPeriod(midJuly!, julyStart, julyEnd)).toBe(true);
+  });
+});
+
+describe("businessDateOf / range helpers (noon cut)", () => {
+  it("maps overnight checkout to previous calendar date as business date", () => {
+    const at = parseIchefDateTime("2026/10/11 02:30:00");
+    expect(at).not.toBeNull();
+    expect(businessDateOf(at!)).toBe("2026-10-10");
+  });
+
+  it("maps 11:59:59 to previous business date and 12:00:00 to same calendar date", () => {
+    const before = parseIchefDateTime("2026/10/11 11:59:59");
+    const atNoon = parseIchefDateTime("2026/10/11 12:00:00");
+    expect(before).not.toBeNull();
+    expect(atNoon).not.toBeNull();
+    expect(businessDateOf(before!)).toBe("2026-10-10");
+    expect(businessDateOf(atNoon!)).toBe("2026-10-11");
+  });
+
+  it("boundsForBusinessDateRange is half-open noon windows inclusive of end date", () => {
+    const bounds = boundsForBusinessDateRange("2026-10-10", "2026-10-12");
+    expect(bounds.startIso).toBe("2026-10-10T12:00:00+08:00");
+    expect(bounds.endIso).toBe("2026-10-13T12:00:00+08:00");
+    const lateOnEnd = parseIchefDateTime("2026/10/13 11:59:59");
+    const atNextNoon = parseIchefDateTime("2026/10/13 12:00:00");
+    expect(lateOnEnd).not.toBeNull();
+    expect(atNextNoon).not.toBeNull();
+    expect(
+      isInPayPeriod(
+        lateOnEnd!,
+        new Date(bounds.startIso),
+        new Date(bounds.endIso)
+      )
+    ).toBe(true);
+    expect(
+      isInPayPeriod(
+        atNextNoon!,
+        new Date(bounds.startIso),
+        new Date(bounds.endIso)
+      )
+    ).toBe(false);
+  });
+
+  it("enumerateBusinessDates is inclusive and crosses month", () => {
+    expect(enumerateBusinessDates("2026-10-30", "2026-11-01")).toEqual([
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+    ]);
+  });
+
+  it("periodKeyForBusinessDate and ichefFileRangeForBusinessDate", () => {
+    expect(periodKeyForBusinessDate("2026-10-10")).toBe("2026-10");
+    expect(ichefFileRangeForBusinessDate("2026-10-10")).toEqual({
+      startDate: "2026-10-10",
+      endDate: "2026-10-11",
+    });
   });
 });

@@ -70,7 +70,7 @@ npm run test:ichef  # 真實網頁取數（需 .env 憑證；不斷言密碼）
 
 ## 外部排程（Cron）
 
-Zeabur 若無內建排程，可用 [cron-job.org](https://cron-job.org) 等以 **HTTPS GET** + Bearer 觸發。兩支 API 共用同一個 `CRON_SECRET`。
+Zeabur 若無內建排程，可用 [cron-job.org](https://cron-job.org) 等以 **HTTPS GET** + Bearer 觸發。cron API 共用同一個 `CRON_SECRET`。
 
 ### 月結網頁取數
 
@@ -131,10 +131,11 @@ LOGIN_PASSWORD=<iCHEF 登入密碼>
 
 ### 排程
 
-| 排程     | 路徑                              | 建議時間                    | 逾時      |
-| -------- | --------------------------------- | --------------------------- | --------- |
-| 月結取數 | `GET /api/cron/month-end-fetch`   | 每月 2 日 12:00 Asia/Taipei | ≥ 15 分鐘 |
-| raw 保留 | `GET /api/cron/storage-retention` | 每月 1 次                   | ≥ 5 分鐘  |
+| 排程     | 路徑                              | 建議時間                                                     | 逾時      |
+| -------- | --------------------------------- | ------------------------------------------------------------ | --------- |
+| 月結取數 | `GET /api/cron/month-end-fetch`   | 每月 2 日 12:00 Asia/Taipei                                  | ≥ 15 分鐘 |
+| 每日取數 | `GET /api/cron/daily-fetch`       | 建議 12:30／15:30／18:30 Asia/Taipei（catch-up 近 7 營業日） | ≥ 10 分鐘 |
+| raw 保留 | `GET /api/cron/storage-retention` | 每月 1 次                                                    | ≥ 5 分鐘  |
 
 Header：`Authorization: Bearer <CRON_SECRET>`
 

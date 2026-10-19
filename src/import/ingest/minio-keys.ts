@@ -6,6 +6,16 @@ export function rawMinioKey(
   return `raw/${storeCode}/${periodKey}/${filename}`;
 }
 
+/** Daily grain under month prefix: raw/{store}/{YYYY-MM}/day/{businessDate}/{filename} */
+export function rawDayMinioKey(
+  storeCode: string,
+  businessDate: string,
+  filename: string
+): string {
+  const periodKey = businessDate.slice(0, 7);
+  return `raw/${storeCode}/${periodKey}/day/${businessDate}/${filename}`;
+}
+
 export function auditMinioKey(
   storeCode: string,
   periodKey: string,

@@ -13,6 +13,10 @@ import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 import { fileRangeForPeriodKey } from "@/web-fetch/period-file-range";
 import { encodeNoteItemNameForFilename } from "@/import/parse-note-analysis";
 import { logServerError } from "@/lib/log-server-error";
+import {
+  acquireStoreFetchLock,
+  releaseStoreFetchLock,
+} from "@/web-fetch/store-fetch-lock";
 
 export type WebFetchProgress = {
   periodKey: string;
@@ -102,22 +106,6 @@ export async function getWebFetchProgress(
   return mapProgress(row);
 }
 
-async function assertNoStoreFetchRunning(
-  storeId: string,
-  exceptPeriodId?: string
-): Promise<void> {
-  const running = await prisma.payPeriod.findFirst({
-    where: {
-      storeId,
-      fetchStatus: "RUNNING",
-      ...(exceptPeriodId ? { id: { not: exceptPeriodId } } : {}),
-    },
-  });
-  if (running) {
-    throw new Error("已有取數進行中，請待完成後再試");
-  }
-}
-
 export async function startWebFetch(input: {
   actorRole: AccountRole;
   storeId: string;
@@ -131,26 +119,37 @@ export async function startWebFetch(input: {
   }
   const range = fileRangeForPeriodKey(input.periodKey);
   const row = await ensurePayPeriodRow(input.storeId, input.periodKey);
-  await assertNoStoreFetchRunning(input.storeId, row.id);
 
   const current = await prisma.payPeriod.findUnique({ where: { id: row.id } });
   if (current?.fetchStatus === "RUNNING") {
     throw new Error("本期取數進行中");
   }
 
-  const startedAt = new Date();
-  const updated = await prisma.payPeriod.update({
-    where: { id: row.id },
-    data: {
-      fetchStatus: "RUNNING",
-      fetchStartedAt: startedAt,
-      fetchFinishedAt: null,
-      fetchErrorMessage: null,
-      fetchRangeStart: range.startDate,
-      fetchRangeEnd: range.endDate,
-    },
-  });
-  return mapProgress(updated);
+  const lock = await acquireStoreFetchLock(input.storeId);
+  if (!lock.ok) {
+    throw new Error("已有取數進行中，請待完成後再試");
+  }
+
+  try {
+    const startedAt = new Date();
+    const updated = await prisma.payPeriod.update({
+      where: { id: row.id },
+      data: {
+        fetchStatus: "RUNNING",
+        fetchStartedAt: startedAt,
+        fetchFinishedAt: null,
+        fetchErrorMessage: null,
+        fetchRangeStart: range.startDate,
+        fetchRangeEnd: range.endDate,
+      },
+    });
+    // Keep lock until runWebFetchJob finishes; stash token on period via store row.
+    void lock.token;
+    return mapProgress(updated);
+  } catch (error) {
+    await releaseStoreFetchLock(input.storeId, lock.token);
+    throw error;
+  }
 }
 
 export async function runWebFetchJob(periodId: string): Promise<void> {
@@ -158,81 +157,88 @@ export async function runWebFetchJob(periodId: string): Promise<void> {
   if (!row || row.fetchStatus !== "RUNNING") {
     return;
   }
-  const creds = readIchefCredentialsFromEnv();
-  if (!creds) {
-    await prisma.payPeriod.update({
-      where: { id: periodId },
-      data: {
-        fetchStatus: "FAILED",
-        fetchFinishedAt: new Date(),
-        fetchErrorMessage: "iCHEF 憑證未設定",
-      },
-    });
-    logServerError("runWebFetchJob", new Error("iCHEF 憑證未設定"), {
-      periodId,
-      periodKey: row.periodKey,
-    });
-    return;
-  }
-  const range = {
-    startDate: row.fetchRangeStart ?? "",
-    endDate: row.fetchRangeEnd ?? "",
-  };
-  if (!range.startDate || !range.endDate) {
-    await prisma.payPeriod.update({
-      where: { id: periodId },
-      data: {
-        fetchStatus: "FAILED",
-        fetchFinishedAt: new Date(),
-        fetchErrorMessage: "取數日期區間缺失",
-      },
-    });
-    logServerError("runWebFetchJob", new Error("取數日期區間缺失"), {
-      periodId,
-      periodKey: row.periodKey,
-    });
-    return;
-  }
+  const storeRow = await prisma.store.findUnique({
+    where: { id: row.storeId },
+    select: { code: true, fetchLockToken: true },
+  });
+  const lockToken = storeRow?.fetchLockToken ?? null;
   try {
-    const fetched = await webFetchRunner(creds, range);
-    const store = await prisma.store.findUniqueOrThrow({
-      where: { id: row.storeId },
-      select: { code: true },
-    });
-    await runIngestPipeline({
-      payPeriodId: row.id,
-      storeId: row.storeId,
-      storeCode: store.code || ZHONGSHAN_STORE_CODE,
-      periodKey: row.periodKey,
-      source: "WEB_FETCH",
-      files: fetchedToUploadInputs(fetched),
-      fileRange: range,
-      noteOuterItems: fetched.noteOuterItems,
-    });
-    await prisma.payPeriod.update({
-      where: { id: periodId },
-      data: {
-        fetchStatus: "SUCCEEDED",
-        fetchFinishedAt: new Date(),
-        fetchErrorMessage: null,
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "網頁取數失敗";
-    await prisma.payPeriod.update({
-      where: { id: periodId },
-      data: {
-        fetchStatus: "FAILED",
-        fetchFinishedAt: new Date(),
-        fetchErrorMessage: message.slice(0, 2000),
-      },
-    });
-    logServerError("runWebFetchJob", error, {
-      periodId,
-      periodKey: row.periodKey,
-      rangeStart: range.startDate,
-      rangeEnd: range.endDate,
-    });
+    const creds = readIchefCredentialsFromEnv();
+    if (!creds) {
+      await prisma.payPeriod.update({
+        where: { id: periodId },
+        data: {
+          fetchStatus: "FAILED",
+          fetchFinishedAt: new Date(),
+          fetchErrorMessage: "iCHEF 憑證未設定",
+        },
+      });
+      logServerError("runWebFetchJob", new Error("iCHEF 憑證未設定"), {
+        periodId,
+        periodKey: row.periodKey,
+      });
+      return;
+    }
+    const range = {
+      startDate: row.fetchRangeStart ?? "",
+      endDate: row.fetchRangeEnd ?? "",
+    };
+    if (!range.startDate || !range.endDate) {
+      await prisma.payPeriod.update({
+        where: { id: periodId },
+        data: {
+          fetchStatus: "FAILED",
+          fetchFinishedAt: new Date(),
+          fetchErrorMessage: "取數日期區間缺失",
+        },
+      });
+      logServerError("runWebFetchJob", new Error("取數日期區間缺失"), {
+        periodId,
+        periodKey: row.periodKey,
+      });
+      return;
+    }
+    try {
+      const fetched = await webFetchRunner(creds, range);
+      await runIngestPipeline({
+        payPeriodId: row.id,
+        storeId: row.storeId,
+        storeCode: storeRow?.code || ZHONGSHAN_STORE_CODE,
+        periodKey: row.periodKey,
+        source: "WEB_FETCH",
+        files: fetchedToUploadInputs(fetched),
+        fileRange: range,
+        noteOuterItems: fetched.noteOuterItems,
+      });
+      await prisma.payPeriod.update({
+        where: { id: periodId },
+        data: {
+          fetchStatus: "SUCCEEDED",
+          fetchFinishedAt: new Date(),
+          fetchErrorMessage: null,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "網頁取數失敗";
+      await prisma.payPeriod.update({
+        where: { id: periodId },
+        data: {
+          fetchStatus: "FAILED",
+          fetchFinishedAt: new Date(),
+          fetchErrorMessage: message.slice(0, 2000),
+        },
+      });
+      logServerError("runWebFetchJob", error, {
+        periodId,
+        periodKey: row.periodKey,
+        rangeStart: range.startDate,
+        rangeEnd: range.endDate,
+      });
+    }
+  } finally {
+    if (lockToken) {
+      await releaseStoreFetchLock(row.storeId, lockToken);
+    }
   }
 }
 

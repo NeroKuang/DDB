@@ -155,6 +155,8 @@ export async function runIngestPipeline(
           nickname: pair.nickname,
           hours: pair.hours,
           paired: true,
+          clockInAt: pair.clockIn,
+          clockOutAt: pair.clockOut,
         })),
       },
       noteClicks: {

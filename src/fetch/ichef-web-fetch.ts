@@ -32,6 +32,12 @@ export type FetchedIchefFiles = {
   noteDrilldowns: { itemName: string; file: DownloadedXlsx }[];
 };
 
+/** Checkout + punches only (營業日 grain；不含注記分析). */
+export type FetchedIchefDailyFiles = {
+  checkout: DownloadedXlsx;
+  punches: DownloadedXlsx;
+};
+
 const LOGIN_URL = "https://login.ichefpos.com/";
 const CHECKOUT_PATH = "/analyse/index/invoice_record_report";
 const PUNCH_PATH = "/analyse/index/clockin_log_report";
@@ -817,6 +823,33 @@ async function fetchAllNoteDrilldowns(
     );
   }
   return drilldowns;
+}
+
+export async function fetchIchefDailyReports(
+  creds: IchefCredentials,
+  range: { startDate: string; endDate: string }
+): Promise<FetchedIchefDailyFiles> {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  try {
+    await loginIchef(page, creds);
+    await openReport(page, CHECKOUT_PATH, range.startDate, range.endDate);
+    await page.getByText("下載報表.xlsx", { exact: true }).first().waitFor({
+      timeout: 30_000,
+    });
+    const checkout = await clickDownload(page, "下載報表.xlsx");
+
+    await openReport(page, PUNCH_PATH, range.startDate, range.endDate);
+    await page.getByText("下載打卡記錄").first().waitFor({ timeout: 30_000 });
+    const punches = await clickDownload(page, "下載打卡記錄");
+
+    if (!checkout.bytes.length || !punches.bytes.length) {
+      throw new IchefFetchError("每日取數：結帳或打卡檔為空");
+    }
+    return { checkout, punches };
+  } finally {
+    await browser.close();
+  }
 }
 
 export async function fetchIchefBusinessReports(

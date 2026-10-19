@@ -19,6 +19,7 @@ export async function loadImportFromDb(
     where: {
       id: period.activeImportRunId,
       status: "SUCCEEDED",
+      kind: "PAY_PERIOD",
     },
     include: {
       payPeriod: { select: { periodKey: true } },
@@ -50,9 +51,8 @@ export async function loadImportFromDb(
         ? run.punchPairs.map((pair) => ({
             nickname: pair.nickname,
             hours: pair.hours,
-            // Ingest already scoped pairs to this 薪資期間; clock times are not persisted.
-            clockIn: new Date(0),
-            clockOut: new Date(0),
+            clockIn: pair.clockInAt ?? new Date(0),
+            clockOut: pair.clockOutAt ?? new Date(0),
           }))
         : [],
       noteClicks: run.noteClicks.map((click) => ({
