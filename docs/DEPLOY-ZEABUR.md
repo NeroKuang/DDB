@@ -110,10 +110,11 @@ LOGIN_PASSWORD=<iCHEF 登入密碼>
 
 平台不內建等同 Vercel Cron 的排程；用 [cron-job.org](https://cron-job.org)（或同類）**HTTPS GET**。
 
-| 排程     | URL                                                   | 建議時間                    | 逾時          |
-| -------- | ----------------------------------------------------- | --------------------------- | ------------- |
-| 月結取數 | `https://<ZEABUR_WEB_URL>/api/cron/month-end-fetch`   | 每月 2 日 12:00 Asia/Taipei | **≥ 15 分鐘** |
-| raw 保留 | `https://<ZEABUR_WEB_URL>/api/cron/storage-retention` | 每月 1 次（如每月 3 日）    | ≥ 5 分鐘      |
+| 排程     | URL                                                   | 建議時間                                                | 逾時          |
+| -------- | ----------------------------------------------------- | ------------------------------------------------------- | ------------- |
+| 月結取數 | `https://<ZEABUR_WEB_URL>/api/cron/month-end-fetch`   | 每月 2 日 12:00 Asia/Taipei                             | **≥ 15 分鐘** |
+| 每日取數 | `https://<ZEABUR_WEB_URL>/api/cron/daily-fetch`       | 12:30／15:30／18:30 Asia/Taipei（catch-up 近 7 營業日） | ≥ 10 分鐘     |
+| raw 保留 | `https://<ZEABUR_WEB_URL>/api/cron/storage-retention` | 每月 1 次（如每月 3 日）                                | ≥ 5 分鐘      |
 
 Header：
 
