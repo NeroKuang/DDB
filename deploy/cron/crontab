@@ -1,0 +1,11 @@
+# Asia/Taipei (container TZ). Paths hit app on the Compose network (no Caddy).
+# minute hour day month weekday command
+
+# 每日取數 catch-up — 13:00
+0 13 * * * /usr/local/bin/run-job.sh daily-fetch 900 >> /var/log/ddb-cron.log 2>&1
+
+# 月結取數 — 每月 2 日 12:00（Playwright 可能較久）
+0 12 2 * * /usr/local/bin/run-job.sh month-end-fetch 1800 >> /var/log/ddb-cron.log 2>&1
+
+# raw 保留 — 每週日 04:00
+0 4 * * 0 /usr/local/bin/run-job.sh storage-retention 600 >> /var/log/ddb-cron.log 2>&1

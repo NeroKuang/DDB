@@ -78,16 +78,25 @@ LOGIN_PASSWORD=<iCHEF 登入密碼>
 
 ---
 
-## 4. 排程（外部 cron）
+## 4. 排程（Compose `cron` sidecar）
 
-逾時建議 **≥10–15 分鐘**（Playwright 取數）。標頭或 query 帶 `CRON_SECRET`（與現有 Zeabur cron 相同契約）。
+正式路徑：`docker-compose.prod.yml` 的 **`cron` 服務**（`deploy/cron/`）在內網打 `http://app:8080/api/cron/*`，**不經 Caddy／公網**。時區 `Asia/Taipei`；`CRON_SECRET` 從 `.env.prod` 注入（勿寫進 host crontab）。
 
-| 用途              | 路徑                                            | 建議                                           |
-| ----------------- | ----------------------------------------------- | ---------------------------------------------- |
-| 月結取數          | `/api/cron/month-end-fetch`（以 repo 現況為準） | 每月 2 日 12:00 Asia/Taipei                    |
-| 每日取數 catch-up | `/api/cron/daily-fetch`                         | 每日（例如 13:00 Asia/Taipei）補齊已完成營業日 |
+| 用途              | 路徑                          | 排程（容器內 Taipei） |
+| ----------------- | ----------------------------- | --------------------- |
+| 每日取數 catch-up | `/api/cron/daily-fetch`       | 每天 13:00            |
+| 月結取數          | `/api/cron/month-end-fetch`   | 每月 2 日 12:00       |
+| raw 保留          | `/api/cron/storage-retention` | 每週日 04:00          |
 
-驗收：HTTP 非 5xx + 執行期 log 有成功／明確失敗原因（非空 502）。
+手動測（在 VPS）：
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec cron \
+  /usr/local/bin/run-job.sh daily-fetch 900
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f cron
+```
+
+驗收：job log 有 `ok`／明確失敗；app log 有對應 cron 執行。不必再用 cron-job.org 或 host crontab（有的話請刪掉以免雙重觸發）。
 
 ---
 
@@ -97,7 +106,7 @@ LOGIN_PASSWORD=<iCHEF 登入密碼>
 2. 建置並跑 app 容器（對齊現有 Dockerfile；binaryTargets 已含 `debian-openssl-3.0.x`）。
 3. 首次 schema：短暫 `RUN_DB_PUSH=1`，確認後改 `0`。
 4. 綁網域／TLS（Caddy／nginx／Cloudflare）；`AUTH_URL`／`NEXTAUTH_URL`／`NEXT_PUBLIC_SITE_URL` 對齊公開 origin。
-5. 設外部 cron。
+5. 確認 Compose `cron` sidecar 在跑（見 §4）；勿與 host crontab 雙開。
 6. Admin 登入 → 門市設定／店員確認 → 自 **2026-09-01** 起手動或排程補取數（月 grain + 每日 grain）。
 7. 驗收：中控台取數狀態、薪資報表編成、MinIO `raw/` 物件、每日區間檢視有資料。
 8. DNS 切換後再下線 Zeabur `ddb`（可先只關 public 流量）。
