@@ -32,6 +32,18 @@ async function assertAdHocTaskPeriodUnlocked(taskId: string): Promise<void> {
   await assertPayPeriodUnlocked(task.storeId, task.periodKey);
 }
 
+async function invalidateTaskCompileCache(taskId: string): Promise<void> {
+  const task = await prisma.adHocTask.findUnique({
+    where: { id: taskId },
+    select: { storeId: true, periodKey: true },
+  });
+  if (!task) {
+    return;
+  }
+  const { invalidateCompileCache } = await import("@/compile/compile-cache");
+  await invalidateCompileCache(task.storeId, task.periodKey);
+}
+
 function mapRow(row: {
   id: string;
   staffId: string;
@@ -160,6 +172,7 @@ export async function updateAdHocTaskStoredAmount(input: {
     data: { storedAmount: roundMoney(input.storedAmount) },
     include: { staff: true },
   });
+  await invalidateTaskCompileCache(input.id);
   return mapRow(row);
 }
 
@@ -174,6 +187,7 @@ export async function confirmAdHocTask(input: {
     data: { confirmed: true },
     include: { staff: true },
   });
+  await invalidateTaskCompileCache(input.id);
   return mapRow(row);
 }
 
@@ -188,6 +202,7 @@ export async function unconfirmAdHocTask(input: {
     data: { confirmed: false },
     include: { staff: true },
   });
+  await invalidateTaskCompileCache(input.id);
   return mapRow(row);
 }
 
@@ -197,5 +212,6 @@ export async function deleteAdHocTask(input: {
 }): Promise<void> {
   requireAdmin(input.actorRole);
   await assertAdHocTaskPeriodUnlocked(input.id);
+  await invalidateTaskCompileCache(input.id);
   await prisma.adHocTask.delete({ where: { id: input.id } });
 }

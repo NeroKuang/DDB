@@ -4,6 +4,7 @@ import {
   createAccount,
   type PublicUser,
 } from "@/auth/accounts";
+import { invalidateCompileCache } from "@/compile/compile-cache";
 import { prisma } from "@/lib/prisma";
 import { parseLaborHealthMode } from "@/lib/labor-health-insurance";
 import { roundMoney } from "@/lib/money";
@@ -284,11 +285,22 @@ export async function createStaff(input: {
     include: staffInclude,
   });
   await replaceAliases(row.id, data.aliases);
+  await invalidateOpenCompileCaches(input.storeId);
   const refreshed = await getStaffById(row.id);
   if (!refreshed) {
     throw new Error("店員建立失敗");
   }
   return refreshed;
+}
+
+async function invalidateOpenCompileCaches(storeId: string): Promise<void> {
+  const periods = await prisma.payPeriod.findMany({
+    where: { storeId, lockedAt: null },
+    select: { periodKey: true },
+  });
+  await Promise.all(
+    periods.map((period) => invalidateCompileCache(storeId, period.periodKey))
+  );
 }
 
 export async function updateStaff(input: {
@@ -326,6 +338,7 @@ export async function updateStaff(input: {
     },
   });
   await replaceAliases(input.id, data.aliases);
+  await invalidateOpenCompileCaches(existing.storeId);
   const refreshed = await getStaffById(input.id);
   if (!refreshed) {
     throw new Error("店員更新失敗");

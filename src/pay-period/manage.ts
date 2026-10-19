@@ -1,5 +1,6 @@
 import type { AccountRole } from "@prisma/client";
 import type { CompileResult } from "@/compile/types";
+import { invalidateCompileCache } from "@/compile/compile-cache";
 import { compilePayPeriodLive } from "@/compile/compile-for-period";
 import { JULY_2026_PERIOD_KEY } from "@/lib/period-keys";
 import { prisma } from "@/lib/prisma";
@@ -128,6 +129,7 @@ export async function unlockPayPeriod(input: {
     where: { id: row.id },
     data: { lockedAt: null, snapshotJson: null },
   });
+  await invalidateCompileCache(input.storeId, input.periodKey);
 }
 
 export function frozenCompileFromSnapshot(

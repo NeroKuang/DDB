@@ -2,7 +2,8 @@ import type { ImportSource, RawFileKind } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { compilePayPeriod } from "@/compile/compile-pay-period";
 import { buildShopInputsForPeriod } from "@/compile/build-shop-inputs";
-import { businessDaysForPeriodKey } from "@/compile/period-catalog";
+import { resolveBusinessDayBounds } from "@/compile/resolve-business-days";
+import { invalidateCompileCache } from "@/compile/compile-cache";
 import { prisma } from "@/lib/prisma";
 import { sha256Hex, uploadBufferToMinio } from "@/import/minio-evidence";
 import { auditMinioKey, rawMinioKey } from "@/import/ingest/minio-keys";
@@ -96,7 +97,10 @@ async function markImportRunFailed(
 export async function runIngestPipeline(
   input: IngestPipelineInput
 ): Promise<IngestPipelineResult> {
-  const businessDays = businessDaysForPeriodKey(input.periodKey);
+  const businessDays = await resolveBusinessDayBounds(
+    input.storeId,
+    input.periodKey
+  );
   const period = {
     start: new Date(businessDays.startIso),
     end: new Date(businessDays.endIso),
@@ -263,6 +267,7 @@ export async function runIngestPipeline(
     ]);
 
     await syncPosItemsFromImportRun(importRun.id);
+    await invalidateCompileCache(input.storeId, input.periodKey);
 
     return {
       importRunId: importRun.id,

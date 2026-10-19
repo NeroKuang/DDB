@@ -197,6 +197,8 @@ export async function upsertPeriodStaffSetting(input: {
     },
     update: { settingsJson: input.settings },
   });
+  const { invalidateCompileCache } = await import("@/compile/compile-cache");
+  await invalidateCompileCache(input.storeId, input.periodKey);
   return {
     staffId: staff.id,
     primaryNickname: staff.primaryNickname,

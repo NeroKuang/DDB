@@ -9,5 +9,6 @@ export function zhongshanEmptyShop(): ShopInputs {
     templateTasks: [],
     adHocTasks: [],
     rollups: {},
+    customSalaryItems: [],
   };
 }

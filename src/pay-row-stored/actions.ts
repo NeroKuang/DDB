@@ -57,6 +57,18 @@ export async function savePayRowStoredAction(
         values[name] = Number(raw);
       }
     }
+    const customValues: Record<string, number | null> = {};
+    for (const [key, rawValue] of formData.entries()) {
+      if (!key.startsWith("custom_")) {
+        continue;
+      }
+      const itemId = key.slice("custom_".length);
+      if (!itemId) {
+        continue;
+      }
+      const raw = String(rawValue ?? "").trim();
+      customValues[itemId] = raw === "" ? null : Number(raw);
+    }
     await upsertPayRowStored({
       actorRole: "ADMIN",
       storeId,
@@ -65,6 +77,8 @@ export async function savePayRowStoredAction(
       venue,
       values,
       clearFields,
+      customValues:
+        Object.keys(customValues).length > 0 ? customValues : undefined,
     });
     revalidatePath("/payroll");
     revalidatePath("/performance");

@@ -63,13 +63,29 @@ export type AdHocTask = {
   confirmed?: boolean;
 };
 
+export type CustomSalaryItemDef = {
+  id: string;
+  name: string;
+  rollup: Rollup;
+};
+
 export type ShopInputs = {
   demeritUnitAmount: number;
   staff: StaffMaster[];
   periodStaff: PeriodStaffInput[];
   templateTasks: TemplateTask[];
   adHocTasks: AdHocTask[];
+  /** Partial overrides merged onto DEFAULT_ROLLUPS. */
   rollups: Record<string, Rollup>;
+  /** Admin-defined items; original always 0. */
+  customSalaryItems: CustomSalaryItemDef[];
+};
+
+export type PayRowCustomCell = {
+  id: string;
+  name: string;
+  original: number;
+  stored: number;
 };
 
 export type PayRowOriginals = {
@@ -101,6 +117,7 @@ export type PayRow = {
   allowanceNote: string;
   original: PayRowOriginals;
   stored: PayRowOriginals;
+  customItems: PayRowCustomCell[];
 };
 
 export type CompileResult = {

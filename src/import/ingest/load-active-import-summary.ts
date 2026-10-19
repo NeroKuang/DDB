@@ -1,6 +1,6 @@
 import type { ImportSource } from "@prisma/client";
+import { resolveBusinessDayBounds } from "@/compile/resolve-business-days";
 import { prisma } from "@/lib/prisma";
-import { businessDaysForPeriodKey } from "@/compile/period-catalog";
 
 export type ActiveImportSummary = {
   periodKey: string;
@@ -22,7 +22,7 @@ export async function loadActiveImportSummary(
   storeId: string,
   periodKey: string
 ): Promise<ActiveImportSummary> {
-  const businessDays = businessDaysForPeriodKey(periodKey);
+  const businessDays = await resolveBusinessDayBounds(storeId, periodKey);
   const empty: ActiveImportSummary = {
     periodKey,
     businessDayStart: businessDays.startIso,

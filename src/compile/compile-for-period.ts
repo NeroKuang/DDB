@@ -1,4 +1,5 @@
 import type { CompileResult, ShopInputs } from "@/compile/types";
+import { readCompileCache, writeCompileCache } from "@/compile/compile-cache";
 import { compilePayPeriod } from "@/compile/compile-pay-period";
 import { buildShopInputsForPeriod } from "@/compile/build-shop-inputs";
 import { loadPeriodImports } from "@/compile/load-period-imports";
@@ -6,6 +7,7 @@ import { periodLabelForImportSource } from "@/compile/period-catalog";
 import { prisma } from "@/lib/prisma";
 import { getPayPeriodState, isPayPeriodLocked } from "@/pay-period/state";
 import { loadPeriodNicknameAttributions } from "@/pay-period/unmatched-resolutions";
+import { ensurePayPeriodRow } from "@/pay-period/ensure-period-row";
 import { ZHONGSHAN_STORE_CODE } from "@/staff/seed-zhongshan";
 
 export type PeriodCompileResult = {
@@ -16,7 +18,7 @@ export type PeriodCompileResult = {
   result: CompileResult;
 };
 
-/** Live 編成：匯入 + shop inputs + compilePayPeriod. */
+/** Live 編成：匯入 + shop inputs + compilePayPeriod（略過快取；寫入快取）. */
 export async function compilePayPeriodLive(input: {
   storeId: string;
   periodKey: string;
@@ -49,7 +51,7 @@ export async function compilePayPeriodLive(input: {
     adminSkippedUnmatchedNicknames: periodRow?.skippedUnmatchedNicknames ?? [],
     periodNicknameAttributions,
   });
-  return {
+  const payload = {
     periodLabel: periodLabelForImportSource(
       input.periodKey,
       imports.source,
@@ -57,12 +59,17 @@ export async function compilePayPeriodLive(input: {
     ),
     periodKey: input.periodKey,
     source: imports.source,
-    shop,
     result,
+  };
+  await ensurePayPeriodRow(input.storeId, input.periodKey);
+  await writeCompileCache(input.storeId, input.periodKey, payload);
+  return {
+    ...payload,
+    shop,
   };
 }
 
-/** Returns frozen snapshot when locked; otherwise live compile. */
+/** Returns frozen snapshot when locked; else cache hit or live compile. */
 export async function compilePayPeriodForStore(input: {
   storeId: string;
   periodKey: string;
@@ -80,6 +87,17 @@ export async function compilePayPeriodForStore(input: {
       result: snapshot.compile,
     };
   }
+  const cached = await readCompileCache(input.storeId, input.periodKey);
+  if (cached) {
+    const { shop } = await buildShopInputsForPeriod(input);
+    return {
+      periodLabel: cached.periodLabel,
+      periodKey: cached.periodKey,
+      source: cached.source,
+      shop,
+      result: cached.result,
+    };
+  }
   return compilePayPeriodLive(input);
 }
 
@@ -87,8 +105,8 @@ export async function compilePayPeriodForStore(input: {
 export async function compileZhongshanPayPeriod(
   periodKey: string
 ): Promise<PeriodCompileResult> {
-  const { prisma } = await import("@/lib/prisma");
-  const store = await prisma.store.findUnique({
+  const { prisma: db } = await import("@/lib/prisma");
+  const store = await db.store.findUnique({
     where: { code: ZHONGSHAN_STORE_CODE },
   });
   if (!store) {

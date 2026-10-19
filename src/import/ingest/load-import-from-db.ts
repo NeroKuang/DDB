@@ -1,4 +1,5 @@
 import type { PeriodImportBundle } from "@/compile/load-period-imports";
+import { resolveBusinessDayBounds } from "@/compile/resolve-business-days";
 import { filterImportBundleForPeriod } from "@/import/filter-import-for-period";
 import { prisma } from "@/lib/prisma";
 
@@ -14,6 +15,7 @@ export async function loadImportFromDb(
   if (!period?.activeImportRunId) {
     return null;
   }
+  const businessDays = await resolveBusinessDayBounds(storeId, periodKey);
 
   const run = await prisma.importRun.findFirst({
     where: {
@@ -69,7 +71,7 @@ export async function loadImportFromDb(
     },
     periodKey,
     importPeriodKey,
-    { punchPairsPreScoped: samePeriodImport }
+    { punchPairsPreScoped: samePeriodImport, businessDays }
   );
 
   return bundle;

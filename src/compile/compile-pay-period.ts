@@ -1,3 +1,4 @@
+import { DEFAULT_ROLLUPS } from "@/compile/default-rollups";
 import {
   computeLockEligible,
   blockingUnmatchedNicknames,
@@ -11,6 +12,7 @@ import { roundMoney } from "@/lib/money";
 import type {
   CompileResult,
   PayRow,
+  PayRowCustomCell,
   PayRowOriginals,
   PeriodStaffInput,
   Rollup,
@@ -22,6 +24,11 @@ import type { CheckoutNoteLine } from "@/import/parse-checkout";
 import type { NoteAnalysisClick } from "@/import/parse-note-analysis";
 import type { PunchPair } from "@/import/parse-punches";
 import { computeTemplateTaskBonus } from "@/template-tasks/compute";
+import {
+  builtinsFromSaved,
+  customStoredFromSaved,
+  type SavedStoredWithCustom,
+} from "@/pay-row-stored/custom-values";
 
 const DEFAULT_MANUALS = {
   demerits: 0,
@@ -33,30 +40,13 @@ const DEFAULT_MANUALS = {
   photoCommission: 0,
 };
 
-const DEFAULT_ROLLUPS: Record<string, Rollup> = {
-  basePay: "addToMonthlyPay",
-  commission: "addToMonthlyPay",
-  targetBonus: "addToMonthlyPay",
-  taskBonus: "addToMonthlyPay",
-  allowance: "addToMonthlyPay",
-  deduction: "subtractFromNetPay",
-  laborHealthInsurance: "subtractFromNetPay",
-  overtimeWithHoliday: "none",
-  overtimeWithoutHoliday: "none",
-  repayment: "none",
-  photoCommission: "none",
-};
-
 export type CompilePayPeriodInput = {
   shop: ShopInputs;
   checkoutLines: CheckoutNoteLine[];
   punchPairs: PunchPair[];
   noteClicks: NoteAnalysisClick[];
   noteOuterComplete: boolean;
-  savedStored?: Record<
-    string,
-    Partial<Record<Venue, Partial<PayRowOriginals>>>
-  >;
+  savedStored?: Record<string, Partial<Record<Venue, SavedStoredWithCustom>>>;
   adminSkippedUnmatchedNicknames?: string[];
   /** POS 暱稱 → 歸屬店員主暱稱（本期認列）. */
   periodNicknameAttributions?: ReadonlyMap<string, string>;
@@ -134,14 +124,33 @@ function landAmount(total: number, venue: Venue, landOn: Venue): number {
   return venue === landOn ? total : 0;
 }
 
+function applyOneRollup(
+  how: Rollup,
+  value: number,
+  monthlyPay: number,
+  netAdjust: number
+): { monthlyPay: number; netAdjust: number } {
+  if (how === "addToMonthlyPay") {
+    return { monthlyPay: roundMoney(monthlyPay + value), netAdjust };
+  }
+  if (how === "addToNetPay") {
+    return { monthlyPay, netAdjust: roundMoney(netAdjust + value) };
+  }
+  if (how === "subtractFromNetPay") {
+    return { monthlyPay, netAdjust: roundMoney(netAdjust - value) };
+  }
+  return { monthlyPay, netAdjust };
+}
+
 function applyRollup(
   original: PayRowOriginals,
-  rollups: Record<string, Rollup>
+  rollups: Record<string, Rollup>,
+  customItems: Array<PayRowCustomCell & { rollup: Rollup }>
 ): { monthlyPay: number; netPay: number } {
   const merged = { ...DEFAULT_ROLLUPS, ...rollups };
   let monthlyPay = 0;
   let netAdjust = 0;
-  const entries: [keyof PayRowOriginals, number][] = [
+  const entries: [string, number][] = [
     ["basePay", original.basePay],
     ["commission", original.commission],
     ["targetBonus", original.targetBonus],
@@ -149,18 +158,30 @@ function applyRollup(
     ["allowance", original.allowance],
     ["deduction", original.deduction],
     ["laborHealthInsurance", original.laborHealthInsurance],
+    ["overtimeWithHoliday", original.overtimeWithHoliday],
+    ["overtimeWithoutHoliday", original.overtimeWithoutHoliday],
     ["repayment", original.repayment],
     ["photoCommission", original.photoCommission],
   ];
   for (const [key, value] of entries) {
-    const how = merged[key] ?? "none";
-    if (how === "addToMonthlyPay") {
-      monthlyPay = roundMoney(monthlyPay + value);
-    } else if (how === "addToNetPay") {
-      netAdjust = roundMoney(netAdjust + value);
-    } else if (how === "subtractFromNetPay") {
-      netAdjust = roundMoney(netAdjust - value);
-    }
+    const next = applyOneRollup(
+      merged[key] ?? "none",
+      value,
+      monthlyPay,
+      netAdjust
+    );
+    monthlyPay = next.monthlyPay;
+    netAdjust = next.netAdjust;
+  }
+  for (const item of customItems) {
+    const next = applyOneRollup(
+      item.rollup,
+      item.stored,
+      monthlyPay,
+      netAdjust
+    );
+    monthlyPay = next.monthlyPay;
+    netAdjust = next.netAdjust;
   }
   return {
     monthlyPay,
@@ -315,7 +336,9 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
         monthlyPay: 0,
         netPay: 0,
       };
-      const saved = savedStored?.[staff.primaryNickname]?.[venue] ?? {};
+      const savedRaw = savedStored?.[staff.primaryNickname]?.[venue];
+      const savedBuiltins = builtinsFromSaved(savedRaw);
+      const savedCustom = customStoredFromSaved(savedRaw);
       const storedLine: PayRowOriginals = {
         ...original,
         allowance: manuals.allowance,
@@ -325,13 +348,31 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
         repayment: manuals.repayment,
         photoCommission: manuals.photoCommission,
         deduction: roundMoney(manuals.demerits * shop.demeritUnitAmount),
-        ...saved,
+        ...savedBuiltins,
       };
-      const rolled = applyRollup(storedLine, shop.rollups);
+      const customForRollup = (shop.customSalaryItems ?? []).map((def) => {
+        const stored = savedCustom[def.id] ?? 0;
+        return {
+          id: def.id,
+          name: def.name,
+          original: 0,
+          stored,
+          rollup: def.rollup,
+        };
+      });
+      const rolled = applyRollup(storedLine, shop.rollups, customForRollup);
       original.monthlyPay = rolled.monthlyPay;
       original.netPay = rolled.netPay;
-      storedLine.monthlyPay = saved.monthlyPay ?? original.monthlyPay;
-      storedLine.netPay = saved.netPay ?? original.netPay;
+      storedLine.monthlyPay = savedBuiltins.monthlyPay ?? original.monthlyPay;
+      storedLine.netPay = savedBuiltins.netPay ?? original.netPay;
+      const customItems: PayRowCustomCell[] = customForRollup.map(
+        ({ id, name, original: orig, stored }) => ({
+          id,
+          name,
+          original: orig,
+          stored,
+        })
+      );
       payRows.push({
         legalName: staff.legalName,
         primaryNickname: staff.primaryNickname,
@@ -342,6 +383,7 @@ export function compilePayPeriod(input: CompilePayPeriodInput): CompileResult {
         allowanceNote: manuals.allowanceNote,
         original,
         stored: storedLine,
+        customItems,
       });
     }
   }

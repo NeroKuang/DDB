@@ -91,6 +91,10 @@ model Store {
   name                    String
   /** 新增店員時預填的業績成數（0～1）. */
   defaultCommissionRate   Float          @default(0.2) @map("default_commission_rate")
+  /** 單點金額（記點 × 此額 = 應扣）. */
+  demeritUnitAmount       Float          @default(230) @map("demerit_unit_amount")
+  /** Partial rollup overrides merged onto DEFAULT_ROLLUPS (JSON object). */
+  rollupsJson             String?        @map("rollups_json") @db.Text
   /** Atomic 網頁取數鎖（月／日共用）；持鎖 token 非空表示進行中. */
   fetchLockToken          String?        @map("fetch_lock_token")
   fetchLockAcquiredAt     DateTime?      @map("fetch_lock_acquired_at")
@@ -101,9 +105,26 @@ model Store {
   payPeriods    PayPeriod[]
   staffTitles   StaffTitle[]
   businessDayImports BusinessDayImport[]
+  customSalaryItems StoreCustomSalaryItem[]
   createdAt     DateTime       @default(now()) @map("created_at")
 
   @@map("stores")
+}
+
+/** Admin-defined 自訂薪資項目（原始恆 0；儲存值可手填）. */
+model StoreCustomSalaryItem {
+  id         String    @id @default(cuid())
+  storeId    String    @map("store_id")
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name       String
+  rollup     String    @default("addToMonthlyPay")
+  sortOrder  Int       @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@unique([storeId, name])
+  @@index([storeId, archivedAt])
+  @@map("store_custom_salary_items")
 }
 
 /** Per-store × business-day active import + fetch progress (not month payroll). */
@@ -134,6 +155,12 @@ model PayPeriod {
   periodKey         String          @map("period_key")
   lockedAt          DateTime?       @map("locked_at")
   snapshotJson      String?         @map("snapshot_json") @db.Text
+  /** Live 編成快取（未鎖定時）；寫入後讀頁優先用，失效則 live 重算. */
+  compileCacheJson  String?         @map("compile_cache_json") @db.Text
+  compileCacheAt    DateTime?       @map("compile_cache_at")
+  /** Null = 日曆月預設營業日起訖（兩個中午）. */
+  businessDayStartIso String?       @map("business_day_start_iso")
+  businessDayEndIso   String?       @map("business_day_end_iso")
   fetchStatus       WebFetchStatus    @default(IDLE) @map("fetch_status")
   fetchStartedAt    DateTime?       @map("fetch_started_at")
   fetchFinishedAt   DateTime?       @map("fetch_finished_at")

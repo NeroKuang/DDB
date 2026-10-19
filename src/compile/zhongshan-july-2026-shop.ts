@@ -238,5 +238,6 @@ export function zhongshanJuly2026Shop(): ShopInputs {
     templateTasks: [],
     adHocTasks: [],
     rollups: {},
+    customSalaryItems: [],
   };
 }
