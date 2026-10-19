@@ -358,7 +358,75 @@ export function PayrollEditableTable({
         ) : null}
       </section>
 
-      <div className="card-surface overflow-x-auto">
+      {/* Mobile: card rows */}
+      <ul className="space-y-2 md:hidden">
+        {filteredRows.length === 0 ? (
+          <li className="card-surface p-4 text-center text-sm text-muted">
+            沒有符合篩選條件的薪資列。
+          </li>
+        ) : (
+          pagedRows.map((row) => {
+            const key = `${row.primaryNickname}-${row.venue}`;
+            const hasOverride = rowHasStoredOverride(row);
+            return (
+              <li key={key}>
+                <button
+                  type="button"
+                  onClick={() => openRow(row)}
+                  className="card-surface flex w-full flex-col gap-2 p-3 text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{row.primaryNickname}</p>
+                      <p className="text-xs text-muted">
+                        {row.legalName || "—"} · {row.title || "—"} ·{" "}
+                        {venueLabel(row.venue)} · {staffKindLabel(row.kind)}
+                      </p>
+                    </div>
+                    {hasOverride ? (
+                      <span className="rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-xs text-[var(--accent)]">
+                        手調
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted">原始</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm tabular-nums">
+                    <div>
+                      <p className="text-xs text-muted">時數</p>
+                      <p>{formatHours(row.stored.hours)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">業績</p>
+                      <MoneyCell
+                        original={row.original.sales}
+                        stored={row.stored.sales}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">當月薪資</p>
+                      <p>{formatMoney(row.stored.monthlyPay)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">應領</p>
+                      <p className="font-medium">
+                        {formatMoney(row.stored.netPay)}
+                      </p>
+                    </div>
+                  </div>
+                  {row.payNote ? (
+                    <p className="text-xs text-muted">
+                      發薪備註：{row.payNote}
+                    </p>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })
+        )}
+      </ul>
+
+      <div className="card-surface hidden overflow-x-auto md:block">
         <table className="table-compact w-full min-w-[40rem] border-collapse text-left">
           <thead>
             <tr className="border-b border-[var(--border)]">
@@ -422,6 +490,7 @@ export function PayrollEditableTable({
                 sort={sort}
                 onSort={handleSort}
               />
+              <th>發薪備註</th>
               <th>狀態</th>
               <th>操作</th>
             </tr>
@@ -430,7 +499,7 @@ export function PayrollEditableTable({
             {filteredRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={12}
+                  colSpan={13}
                   className="py-6 text-center text-sm text-muted"
                 >
                   沒有符合篩選條件的薪資列。
@@ -486,6 +555,9 @@ export function PayrollEditableTable({
                     </td>
                     <td className="tabular-nums font-medium">
                       {formatMoney(row.stored.netPay)}
+                    </td>
+                    <td className="max-w-[10rem] text-xs text-muted">
+                      {row.payNote || "—"}
                     </td>
                     <td>
                       {hasOverride ? (

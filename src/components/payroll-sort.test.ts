@@ -33,6 +33,7 @@ function row(partial: {
     venue: "frontOfHouse",
     payNote: "",
     allowanceNote: "",
+    customItems: [],
     original: stored,
     stored,
   };

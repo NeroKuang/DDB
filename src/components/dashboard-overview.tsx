@@ -107,17 +107,27 @@ export function DashboardOverview({
           value={`${errorCount} 錯誤 · ${warnCount} 警告`}
           tone={errorCount > 0 ? "bad" : warnCount > 0 ? "warn" : "ok"}
         />
-        <KpiCard
-          label="網頁取數"
-          value={fetchStatusLabel(status.fetch)}
-          tone={
-            status.fetch?.status === "FAILED"
-              ? "bad"
-              : status.fetch?.status === "RUNNING"
-                ? "warn"
-                : "neutral"
-          }
-        />
+        <div className="space-y-1">
+          <KpiCard
+            label="網頁取數"
+            value={fetchStatusLabel(status.fetch)}
+            tone={
+              status.fetch?.status === "FAILED"
+                ? "bad"
+                : status.fetch?.status === "RUNNING"
+                  ? "warn"
+                  : "neutral"
+            }
+          />
+          {status.fetch?.status === "FAILED" && status.fetch.errorMessage ? (
+            <p
+              className="rounded border border-[var(--danger)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-2 py-1.5 text-xs text-[var(--danger)]"
+              role="alert"
+            >
+              {status.fetch.errorMessage}
+            </p>
+          ) : null}
+        </div>
         <KpiCard
           label="必要匯入"
           value={status.requiredImportsComplete ? "齊全" : "未齊"}

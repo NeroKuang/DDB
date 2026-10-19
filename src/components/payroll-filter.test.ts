@@ -14,6 +14,7 @@ function sampleRow(overrides: Partial<PayRow> = {}): PayRow {
     venue: "frontOfHouse",
     payNote: "",
     allowanceNote: "",
+    customItems: [],
     original: {
       hours: 65.5,
       basePay: 15410,

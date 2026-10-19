@@ -148,12 +148,42 @@ function EditForm({
           </div>
         </section>
       ))}
-      {(row.allowanceNote || row.payNote) && (
-        <section className="space-y-1 text-xs text-muted">
-          {row.allowanceNote ? <p>加給備註：{row.allowanceNote}</p> : null}
-          {row.payNote ? <p>發薪備註：{row.payNote}</p> : null}
+      {row.customItems.length > 0 ? (
+        <section className="space-y-2">
+          <h3 className="text-sm font-medium">自訂薪資項目</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {row.customItems.map((item) => (
+              <label key={item.id} className="flex flex-col gap-0.5 text-xs">
+                {item.name}
+                <input
+                  name={`custom_${item.id}`}
+                  type="number"
+                  step="any"
+                  className="field-input"
+                  placeholder="0"
+                  defaultValue={
+                    item.stored === item.original ? "" : String(item.stored)
+                  }
+                />
+                <span className="text-muted">
+                  原 {formatMoney(item.original)}
+                </span>
+              </label>
+            ))}
+          </div>
         </section>
-      )}
+      ) : null}
+      {row.allowanceNote ? (
+        <p className="text-xs text-muted">加給備註：{row.allowanceNote}</p>
+      ) : null}
+      <section className="space-y-1">
+        <p className="text-xs text-muted">
+          發薪備註（本列顯示；改主檔請至店員主檔）
+        </p>
+        <p className="rounded border border-[var(--border)] bg-[var(--surface)] p-2 text-sm">
+          {row.payNote || "—"}
+        </p>
+      </section>
       <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
         <button
           type="submit"
@@ -266,6 +296,29 @@ export function PayRowDialog({
                 </div>
               </section>
             ))}
+            {row.customItems.length > 0 ? (
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">自訂薪資項目</h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {row.customItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded border border-[var(--border)] bg-[var(--surface)] p-2"
+                    >
+                      <p className="text-xs text-muted">{item.name}</p>
+                      <p className="tabular-nums font-medium">
+                        {formatMoney(item.stored)}
+                      </p>
+                      {item.stored !== item.original ? (
+                        <p className="text-xs text-muted">
+                          原始 {formatMoney(item.original)}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
             {(row.allowanceNote || row.payNote) && (
               <section className="space-y-1 text-xs text-muted">
                 {row.allowanceNote ? (

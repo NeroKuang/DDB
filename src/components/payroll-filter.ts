@@ -18,10 +18,16 @@ export const EMPTY_PAYROLL_FILTERS: PayrollFilters = {
 };
 
 export function rowHasStoredOverride(row: PayRow): boolean {
-  return Object.keys(row.original).some((key) => {
+  const builtin = Object.keys(row.original).some((key) => {
     const field = key as keyof PayRow["original"];
     return isStoredOverride(row.original[field], row.stored[field]);
   });
+  if (builtin) {
+    return true;
+  }
+  return (row.customItems ?? []).some((item) =>
+    isStoredOverride(item.original, item.stored)
+  );
 }
 
 function normalizeSearch(text: string): string {
